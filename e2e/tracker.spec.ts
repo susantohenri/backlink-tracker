@@ -70,7 +70,7 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await expect(page.locator('table')).toContainText('Product Hunt');
   });
 
-  test('4 & 5. Create a Submission linking the App and Website and verify default status is TODO', async ({ page }) => {
+  test('4 & 5. Create a Submission linking the App and Website and verify default status is APPROVED', async ({ page }) => {
     await page.goto('/');
 
     // Setup app and website first
@@ -89,21 +89,23 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await page.getByTestId('btn-add-submission').click();
     await expect(page.getByTestId('submission-form-card')).toBeVisible();
 
-    // Verify default status is TODO
+    // Verify default status is APPROVED
     const statusSelect = page.getByTestId('input-submission-status');
-    await expect(statusSelect).toHaveValue('TODO');
+    await expect(statusSelect).toHaveValue('APPROVED');
 
-    // Submit submission
+    // Fill post URL and notes
+    await page.getByTestId('input-submission-post-url').fill('https://producthunt.com/posts/habit-tracker-pro');
     await page.getByTestId('input-submission-notes').fill('Targeting launch next Monday');
     await page.getByTestId('btn-submit-submission').click();
 
     await expect(page.getByTestId('submission-success-alert')).toBeVisible();
 
-    // Check table has row linking Habit Tracker Pro and Product Hunt with status TODO
+    // Check table has row linking Habit Tracker Pro and Product Hunt with status APPROVED and post URL
     const table = page.getByTestId('submissions-table');
     await expect(table).toContainText('Habit Tracker Pro');
     await expect(table).toContainText('Product Hunt');
-    await expect(page.getByTestId('status-badge-todo')).toBeVisible();
+    await expect(page.getByTestId('status-badge-approved')).toBeVisible();
+    await expect(table).toContainText('https://producthunt.com/posts/habit-tracker-pro');
   });
 
   test('6 & 7. Change Submission status and verify Dashboard immediately reflects the change', async ({ page }) => {
@@ -120,9 +122,10 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await page.getByTestId('input-website-name').fill('Product Hunt');
     await page.getByTestId('btn-submit-website').click();
 
-    // Create Submission
+    // Create Submission with status TODO
     await page.getByTestId('nav-submissions').click();
     await page.getByTestId('btn-add-submission').click();
+    await page.getByTestId('input-submission-status').selectOption('TODO');
     await page.getByTestId('btn-submit-submission').click();
 
     // Go to "What To Do Now"
@@ -162,9 +165,10 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await page.getByTestId('input-website-name').fill('Product Hunt');
     await page.getByTestId('btn-submit-website').click();
 
-    // Create submission
+    // Create submission with TODO status so it appears in What To Do Now queue
     await page.getByTestId('nav-submissions').click();
     await page.getByTestId('btn-add-submission').click();
+    await page.getByTestId('input-submission-status').selectOption('TODO');
     await page.getByTestId('btn-submit-submission').click();
 
     // Edit the App name
@@ -201,9 +205,10 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await page.getByTestId('input-website-name').fill('BetaList Initial');
     await page.getByTestId('btn-submit-website').click();
 
-    // Create submission
+    // Create submission with TODO status
     await page.getByTestId('nav-submissions').click();
     await page.getByTestId('btn-add-submission').click();
+    await page.getByTestId('input-submission-status').selectOption('TODO');
     await page.getByTestId('btn-submit-submission').click();
 
     // Edit the Website name

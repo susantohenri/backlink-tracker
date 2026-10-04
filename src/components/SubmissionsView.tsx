@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import type { AndroidApp, Website, Submission, SubmissionStatus, SubmissionFormData } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { SearchableSelect, type SearchableSelectOption } from './SearchableSelect';
 import { createSubmission, updateSubmission, deleteSubmission } from '../services/storage';
-import { Plus, Search, Filter, Trash2, Edit2, ExternalLink, AlertTriangle, X, Check } from 'lucide-react';
+import { Plus, Search, Filter, Trash2, Edit2, ExternalLink, AlertTriangle, X, Check, Link as LinkIcon } from 'lucide-react';
 
 interface SubmissionsViewProps {
   apps: AndroidApp[];
@@ -21,8 +22,11 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   // Form states
   const [selectedAppId, setSelectedAppId] = useState('');
   const [selectedWebsiteId, setSelectedWebsiteId] = useState('');
-  const [formStatus, setFormStatus] = useState<SubmissionStatus>('TODO');
+  // User requirement: default status is APPROVED
+  const [formStatus, setFormStatus] = useState<SubmissionStatus>('APPROVED');
+  // User requirement: submission date jgn otomatis ambil today
   const [formDate, setFormDate] = useState('');
+  const [formPostUrl, setFormPostUrl] = useState('');
   const [formNotes, setFormNotes] = useState('');
 
   // Filters & Search
@@ -41,11 +45,28 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   const appMap = new Map<string, AndroidApp>(apps.map((a) => [a.id, a]));
   const websiteMap = new Map<string, Website>(websites.map((w) => [w.id, w]));
 
+  // Options for SearchableSelect
+  const appOptions: SearchableSelectOption[] = apps.map((a) => ({
+    value: a.id,
+    label: a.name,
+    subLabel: a.playStoreUrl,
+    description: a.notes,
+  }));
+
+  const websiteOptions: SearchableSelectOption[] = websites.map((w) => ({
+    value: w.id,
+    label: w.name,
+    badge: typeof w.dr === 'number' ? `DR ${w.dr}` : undefined,
+    subLabel: w.url,
+    description: w.notes,
+  }));
+
   const resetForm = () => {
     setSelectedAppId(apps[0]?.id || '');
     setSelectedWebsiteId(websites[0]?.id || '');
-    setFormStatus('TODO');
-    setFormDate('');
+    setFormStatus('APPROVED');
+    setFormDate(''); // never auto-default to today
+    setFormPostUrl('');
     setFormNotes('');
     setEditingId(null);
     setShowCreateForm(false);
@@ -55,8 +76,9 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   const handleOpenCreate = () => {
     setSelectedAppId(apps[0]?.id || '');
     setSelectedWebsiteId(websites[0]?.id || '');
-    setFormStatus('TODO');
-    setFormDate('');
+    setFormStatus('APPROVED');
+    setFormDate(''); // never auto-default to today
+    setFormPostUrl('');
     setFormNotes('');
     setEditingId(null);
     setShowCreateForm(true);
@@ -67,7 +89,8 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
     setSelectedAppId(sub.appId);
     setSelectedWebsiteId(sub.websiteId);
     setFormStatus(sub.status);
-    setFormDate(sub.submissionDate || '');
+    setFormDate(sub.submissionDate || ''); // preserve saved date, never auto-fill today
+    setFormPostUrl(sub.postUrl || '');
     setFormNotes(sub.notes || '');
     setEditingId(sub.id);
     setShowCreateForm(true);
@@ -95,7 +118,8 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
         websiteId: selectedWebsiteId,
         status: formStatus,
         submissionDate: formDate,
-        notes: formNotes,
+        postUrl: formPostUrl.trim(),
+        notes: formNotes.trim(),
       };
 
       if (editingId) {
@@ -124,18 +148,6 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
     }
   };
 
-  const handleQuickStatus = async (sub: Submission, newStatus: SubmissionStatus) => {
-    try {
-      const updates: { status: SubmissionStatus; submissionDate?: string } = { status: newStatus };
-      if ((newStatus === 'WAITING' || newStatus === 'APPROVED') && !sub.submissionDate) {
-        updates.submissionDate = new Date().toISOString().split('T')[0];
-      }
-      await updateSubmission(sub.id, updates);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to update status');
-    }
-  };
-
   // Filtered & Sorted Submissions
   const filteredSubmissions = submissions
     .filter((sub) => {
@@ -143,10 +155,18 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
       const website = websiteMap.get(sub.websiteId);
       const appName = app ? app.name.toLowerCase() : '';
       const websiteName = website ? website.name.toLowerCase() : '';
-      const notes = (sub.notes || '').toLowerCase();
-      const q = searchQuery.toLowerCase();
+      const websiteNotes = (website?.notes || '').toLowerCase();
+      const subNotes = (sub.notes || '').toLowerCase();
+      const postUrl = (sub.postUrl || '').toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
 
-      const matchesSearch = appName.includes(q) || websiteName.includes(q) || notes.includes(q);
+      const matchesSearch =
+        appName.includes(q) ||
+        websiteName.includes(q) ||
+        websiteNotes.includes(q) ||
+        subNotes.includes(q) ||
+        postUrl.includes(q);
+
       const matchesStatus = statusFilter === 'ALL' || sub.status === statusFilter;
       const matchesApp = appFilter === 'ALL' || sub.appId === appFilter;
       const matchesWebsite = websiteFilter === 'ALL' || sub.websiteId === websiteFilter;
@@ -171,7 +191,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
         return siteA.localeCompare(siteB);
       }
       if (sortBy === 'status') {
-        const order = { TODO: 1, WAITING: 2, APPROVED: 3, REJECTED: 4 };
+        const order = { APPROVED: 1, WAITING: 2, TODO: 3, REJECTED: 4 };
         return order[a.status] - order[b.status];
       }
       return 0;
@@ -240,58 +260,41 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
           </div>
 
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* App Searchable Dropdown */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Android App <span className="text-rose-500">*</span>
                 </label>
-                <select
+                <SearchableSelect
+                  options={appOptions}
                   value={selectedAppId}
-                  onChange={(e) => setSelectedAppId(e.target.value)}
+                  onChange={setSelectedAppId}
+                  placeholder={apps.length === 0 ? 'No apps available' : 'Search & select app...'}
                   disabled={apps.length === 0}
-                  data-testid="input-submission-app"
-                  className="w-full text-sm rounded-lg border border-slate-300 bg-white py-2 px-3 focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100"
-                  required
-                >
-                  {apps.length === 0 ? (
-                    <option value="">No apps available. Create an app first.</option>
-                  ) : (
-                    apps.map((app) => (
-                      <option key={app.id} value={app.id}>
-                        {app.name}
-                      </option>
-                    ))
-                  )}
-                </select>
+                  testId="input-submission-app"
+                />
               </div>
 
+              {/* Website Searchable Dropdown */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Target Website <span className="text-rose-500">*</span>
                 </label>
-                <select
+                <SearchableSelect
+                  options={websiteOptions}
                   value={selectedWebsiteId}
-                  onChange={(e) => setSelectedWebsiteId(e.target.value)}
+                  onChange={setSelectedWebsiteId}
+                  placeholder={websites.length === 0 ? 'No websites available' : 'Search & select website...'}
                   disabled={websites.length === 0}
-                  data-testid="input-submission-website"
-                  className="w-full text-sm rounded-lg border border-slate-300 bg-white py-2 px-3 focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100"
-                  required
-                >
-                  {websites.length === 0 ? (
-                    <option value="">No websites available. Create a website first.</option>
-                  ) : (
-                    websites.map((site) => (
-                      <option key={site.id} value={site.id}>
-                        {site.name} {typeof site.dr === 'number' ? `(DR ${site.dr})` : ''} ({site.url})
-                      </option>
-                    ))
-                  )}
-                </select>
+                  testId="input-submission-website"
+                />
               </div>
 
+              {/* Status Select: Default APPROVED */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Status (Default: TODO)
+                  Status
                 </label>
                 <select
                   value={formStatus}
@@ -299,16 +302,35 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                   data-testid="input-submission-status"
                   className="w-full text-sm rounded-lg border border-slate-300 bg-white py-2 px-3 focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="TODO">TODO</option>
-                  <option value="WAITING">WAITING</option>
                   <option value="APPROVED">APPROVED</option>
+                  <option value="WAITING">WAITING</option>
+                  <option value="TODO">TODO</option>
                   <option value="REJECTED">REJECTED</option>
                 </select>
               </div>
 
+              {/* Post URL */}
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Post URL / Live Backlink URL
+                </label>
+                <div className="relative">
+                  <LinkIcon className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="https://example.com/blog/my-android-app-review"
+                    value={formPostUrl}
+                    onChange={(e) => setFormPostUrl(e.target.value)}
+                    data-testid="input-submission-post-url"
+                    className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Submission Date: No Auto Today */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Submission Date
+                  Submission Date <span className="text-slate-400 font-normal">(optional)</span>
                 </label>
                 <input
                   type="date"
@@ -320,11 +342,12 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
               </div>
             </div>
 
+            {/* Notes */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Notes / Submission details</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Submission Notes</label>
               <input
                 type="text"
-                placeholder="e.g. Submitted guest post form, contact: editor@example.com"
+                placeholder="e.g. Submitted form, contacted editor, account login info..."
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
                 data-testid="input-submission-notes"
@@ -361,7 +384,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
             <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by app, website, or notes..."
+              placeholder="Search by app, website, post URL, or notes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               data-testid="input-search-submissions"
@@ -378,9 +401,9 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
               className="w-full py-2 px-3 text-sm rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500"
             >
               <option value="ALL">All Statuses</option>
-              <option value="TODO">TODO</option>
-              <option value="WAITING">WAITING</option>
               <option value="APPROVED">APPROVED</option>
+              <option value="WAITING">WAITING</option>
+              <option value="TODO">TODO</option>
               <option value="REJECTED">REJECTED</option>
             </select>
           </div>
@@ -413,7 +436,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
               <option value="ALL">All Websites</option>
               {websites.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.name}
+                  {w.name} {typeof w.dr === 'number' ? `(DR ${w.dr})` : ''}
                 </option>
               ))}
             </select>
@@ -465,6 +488,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                   <th className="py-3 px-4">Android App</th>
                   <th className="py-3 px-4">Website</th>
                   <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Post URL</th>
                   <th className="py-3 px-4">Submission Date</th>
                   <th className="py-3 px-4">Notes</th>
                   <th className="py-3 px-4 text-right">Actions</th>
@@ -483,15 +507,26 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                     >
                       {/* App Name resolved dynamically */}
                       <td className="py-3 px-4 font-semibold text-slate-900" data-testid={`sub-app-name-${sub.id}`}>
-                        {app ? app.name : <span className="text-rose-500 italic">Unknown App</span>}
+                        <div>{app ? app.name : <span className="text-rose-500 italic">Unknown App</span>}</div>
+                        {app?.playStoreUrl && (
+                          <a
+                            href={app.playStoreUrl.startsWith('http') ? app.playStoreUrl : `https://${app.playStoreUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-xs text-slate-400 hover:text-slate-600 hover:underline mt-0.5"
+                          >
+                            <ExternalLink className="w-2.5 h-2.5 mr-1" />
+                            Play Store
+                          </a>
+                        )}
                       </td>
 
-                      {/* Website Name resolved dynamically */}
+                      {/* Website Name resolved dynamically + Website Notes */}
                       <td className="py-3 px-4" data-testid={`sub-website-name-${sub.id}`}>
                         <div className="font-medium text-slate-900 flex items-center gap-1.5">
                           <span>{website ? website.name : 'Unknown Website'}</span>
                           {typeof website?.dr === 'number' && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                               DR {website.dr}
                             </span>
                           )}
@@ -507,29 +542,44 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                             {website.url}
                           </a>
                         )}
-                      </td>
-
-                      {/* Status + Quick toggle */}
-                      <td className="py-3 px-4" data-testid={`sub-status-${sub.id}`}>
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={sub.status} />
-                          <select
-                            value={sub.status}
-                            onChange={(e) => handleQuickStatus(sub, e.target.value as SubmissionStatus)}
-                            data-testid={`quick-status-dropdown-${sub.id}`}
-                            className="text-xs py-1 px-1.5 border border-slate-200 rounded bg-white text-slate-600 hover:border-slate-300"
-                            title="Quick change status"
+                        {/* Requirement: kolom website, tambahkan website.note */}
+                        {website?.notes && (
+                          <p
+                            className="text-[11px] text-slate-500 italic mt-1 max-w-xs line-clamp-2"
+                            title={website.notes}
+                            data-testid={`sub-website-notes-${sub.id}`}
                           >
-                            <option value="TODO">TODO</option>
-                            <option value="WAITING">WAITING</option>
-                            <option value="APPROVED">APPROVED</option>
-                            <option value="REJECTED">REJECTED</option>
-                          </select>
-                        </div>
+                            {website.notes}
+                          </p>
+                        )}
                       </td>
 
+                      {/* Requirement: kolom status, hapus dropdown -> hanya StatusBadge */}
+                      <td className="py-3 px-4" data-testid={`sub-status-${sub.id}`}>
+                        <StatusBadge status={sub.status} />
+                      </td>
+
+                      {/* Requirement: tambahkan kolom post url */}
+                      <td className="py-3 px-4 text-xs" data-testid={`sub-post-url-${sub.id}`}>
+                        {sub.postUrl ? (
+                          <a
+                            href={sub.postUrl.startsWith('http') ? sub.postUrl : `https://${sub.postUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-emerald-600 hover:text-emerald-800 hover:underline font-medium max-w-xs truncate"
+                            title={sub.postUrl}
+                          >
+                            <LinkIcon className="w-3 h-3 mr-1 shrink-0" />
+                            <span className="truncate max-w-[180px]">{sub.postUrl}</span>
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 italic">-</span>
+                        )}
+                      </td>
+
+                      {/* Submission Date: only shown if set */}
                       <td className="py-3 px-4 text-slate-600 text-xs">
-                        {sub.submissionDate || <span className="text-slate-400 italic">Not set</span>}
+                        {sub.submissionDate || <span className="text-slate-400 italic">-</span>}
                       </td>
 
                       <td className="py-3 px-4 text-xs text-slate-600 max-w-xs truncate" title={sub.notes}>

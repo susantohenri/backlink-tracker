@@ -25,6 +25,7 @@ export interface Submission {
   websiteId: string;
   status: SubmissionStatus;
   submissionDate: string;
+  postUrl?: string;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -50,5 +51,6 @@ export interface SubmissionFormData {
   websiteId: string;
   status: SubmissionStatus;
   submissionDate?: string;
+  postUrl?: string;
   notes: string;
 }

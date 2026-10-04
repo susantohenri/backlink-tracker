@@ -21,6 +21,7 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
   const [editStatus, setEditStatus] = useState<SubmissionStatus>('TODO');
   const [editNotes, setEditNotes] = useState<string>('');
   const [editDate, setEditDate] = useState<string>('');
+  const [editPostUrl, setEditPostUrl] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -44,17 +45,15 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
     setEditStatus(sub.status);
     setEditNotes(sub.notes || '');
     setEditDate(sub.submissionDate || '');
+    setEditPostUrl(sub.postUrl || '');
     setActionError(null);
   };
 
   const handleQuickStatusChange = async (sub: Submission, newStatus: SubmissionStatus) => {
     try {
       setActionError(null);
-      const updates: { status: SubmissionStatus; submissionDate?: string } = { status: newStatus };
-      if ((newStatus === 'WAITING' || newStatus === 'APPROVED') && !sub.submissionDate) {
-        updates.submissionDate = new Date().toISOString().split('T')[0];
-      }
-      await updateSubmission(sub.id, updates);
+      // User requirement: Do NOT automatically take today's date
+      await updateSubmission(sub.id, { status: newStatus });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to update status');
     }
@@ -68,6 +67,7 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
         status: editStatus,
         notes: editNotes,
         submissionDate: editDate,
+        postUrl: editPostUrl.trim(),
       });
       setEditingId(null);
     } catch (err) {
@@ -246,10 +246,28 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
                             Play Store URL
                           </a>
                         )}
+                        {sub.postUrl && (
+                          <a
+                            href={sub.postUrl.startsWith('http') ? sub.postUrl : `https://${sub.postUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-emerald-600 hover:text-emerald-800 hover:underline font-medium"
+                            title={sub.postUrl}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                            Live Post URL
+                          </a>
+                        )}
                         {sub.submissionDate && (
                           <span>Submitted on: <strong className="text-slate-700">{sub.submissionDate}</strong></span>
                         )}
                       </div>
+
+                      {website?.notes && (
+                        <p className="text-xs text-slate-500 italic bg-slate-50/70 p-2 rounded-md border border-slate-200/50 max-w-2xl">
+                          <strong className="text-slate-600 not-italic">Website Note:</strong> {website.notes}
+                        </p>
+                      )}
 
                       {sub.notes && (
                         <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded-md border border-slate-200/60 max-w-2xl">
@@ -342,7 +360,18 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
                             className="w-full text-xs rounded-md border border-slate-300 bg-white py-1.5 px-2 focus:ring-1 focus:ring-indigo-500"
                           />
                         </div>
-                        <div className="md:col-span-1">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">Post URL</label>
+                          <input
+                            type="text"
+                            placeholder="https://..."
+                            value={editPostUrl}
+                            onChange={(e) => setEditPostUrl(e.target.value)}
+                            data-testid={`edit-post-url-input-${sub.id}`}
+                            className="w-full text-xs rounded-md border border-slate-300 bg-white py-1.5 px-2 focus:ring-1 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
                           <label className="block text-xs font-medium text-slate-700 mb-1">Notes</label>
                           <input
                             type="text"

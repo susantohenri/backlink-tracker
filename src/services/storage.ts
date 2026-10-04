@@ -387,6 +387,7 @@ export const subscribeSubmissions = (callback: (submissions: Submission[]) => vo
           websiteId: data.websiteId ?? '',
           status: data.status ?? 'TODO',
           submissionDate: data.submissionDate ?? '',
+          postUrl: data.postUrl ?? '',
           notes: data.notes ?? '',
           createdAt: formatTimestamp(data.createdAt),
           updatedAt: formatTimestamp(data.updatedAt),
@@ -417,14 +418,16 @@ export const createSubmission = async (
 
   const now = new Date().toISOString();
   const subDate = formData.submissionDate ? formData.submissionDate : '';
+  const postUrl = formData.postUrl ? formData.postUrl.trim() : '';
 
   if (isMockMode()) {
     const newSub: Submission = {
       id: 'sub_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
       appId: formData.appId,
       websiteId: formData.websiteId,
-      status: formData.status || 'TODO',
+      status: formData.status || 'APPROVED',
       submissionDate: subDate,
+      postUrl: postUrl,
       notes: formData.notes ? formData.notes.trim() : '',
       createdAt: now,
       updatedAt: now,
@@ -437,8 +440,9 @@ export const createSubmission = async (
   const docRef = await addDoc(collection(db, 'submissions'), {
     appId: formData.appId,
     websiteId: formData.websiteId,
-    status: formData.status || 'TODO',
+    status: formData.status || 'APPROVED',
     submissionDate: subDate,
+    postUrl: postUrl,
     notes: formData.notes ? formData.notes.trim() : '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -471,6 +475,7 @@ export const updateSubmission = async (
       ...(formData.websiteId ? { websiteId: formData.websiteId } : {}),
       ...(formData.status ? { status: formData.status } : {}),
       ...(formData.submissionDate !== undefined ? { submissionDate: formData.submissionDate } : {}),
+      ...(formData.postUrl !== undefined ? { postUrl: formData.postUrl.trim() } : {}),
       ...(formData.notes !== undefined ? { notes: formData.notes.trim() } : {}),
       updatedAt: new Date().toISOString(),
     };
@@ -485,6 +490,7 @@ export const updateSubmission = async (
   if (formData.websiteId) updates.websiteId = formData.websiteId;
   if (formData.status) updates.status = formData.status;
   if (formData.submissionDate !== undefined) updates.submissionDate = formData.submissionDate;
+  if (formData.postUrl !== undefined) updates.postUrl = formData.postUrl.trim();
   if (formData.notes !== undefined) updates.notes = formData.notes.trim();
 
   await updateDoc(doc(db, 'submissions', id), updates);
