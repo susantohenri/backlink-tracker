@@ -11,85 +11,92 @@ interface WhatToDoNowProps {
   onNavigate: (tab: 'apps' | 'websites' | 'submissions', prefill?: { appId: string; websiteId: string }) => void;
 }
 
-interface RecommendedSubmissionResult {
-  status: 'ready' | 'no_apps' | 'no_websites' | 'all_completed';
-  app?: AndroidApp;
-  website?: Website;
-  source?: 'latest_app' | 'other_app' | 'initial_app';
+export interface AppRecommendation {
+  app: AndroidApp;
+  recommendedWebsite: Website | null;
+  submittedCount: number;
+  totalWebsites: number;
+  isLatestWorkedApp: boolean;
 }
 
-// Recommendation Algorithm:
-// 1. Temukan submission terakhir
-// 2. Ambil app-nya
-// 3. Ambil website yang belum di-submit app tersebut yang DR-nya paling tinggi
-function getRecommendedSubmission(
+// Recommendation Algorithm per App:
+// Untuk setiap App:
+// 1. Ambil website yang belum di-submit oleh app tersebut
+// 2. Pilih website dengan DR paling tinggi
+// 3. Urutkan: app aktif terakhir di atas, lalu berdasarkan DR rekomendasi tertinggi
+function getAppRecommendations(
   apps: AndroidApp[],
   websites: Website[],
-  submissions: Submission[],
-  appMap: Map<string, AndroidApp>
-): RecommendedSubmissionResult {
-  if (apps.length === 0) {
-    return { status: 'no_apps' };
-  }
-  if (websites.length === 0) {
-    return { status: 'no_websites' };
+  submissions: Submission[]
+): AppRecommendation[] {
+  if (apps.length === 0 || websites.length === 0) {
+    return [];
   }
 
-  // Helper: cari website yang belum di-submit app dengan DR tertinggi
-  const findHighestDrUnsubmittedWebsite = (app: AndroidApp): Website | null => {
-    const submittedIds = new Set(
-      submissions.filter((s) => s.appId === app.id).map((s) => s.websiteId)
-    );
-    const unsubmitted = websites.filter((w) => !submittedIds.has(w.id));
-    if (unsubmitted.length === 0) return null;
-
-    return [...unsubmitted].sort((a, b) => {
-      const drA = typeof a.dr === 'number' ? a.dr : -1;
-      const drB = typeof b.dr === 'number' ? b.dr : -1;
-      if (drB !== drA) return drB - drA;
-      return a.name.localeCompare(b.name);
-    })[0];
-  };
-
-  // 1. Temukan submission terakhir (berdasarkan createdAt / updatedAt descending)
+  // 1. Temukan submission terakhir untuk mengetahui app yang paling terakhir dikerjakan
   const sortedSubmissions = [...submissions].sort((a, b) => {
     const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
     const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
     return timeB - timeA;
   });
-  const lastSub = sortedSubmissions[0];
+  const latestAppId = sortedSubmissions[0]?.appId;
 
-  // 2. Jika ada submission terakhir, ambil app-nya
-  if (lastSub) {
-    const lastApp = appMap.get(lastSub.appId);
-    if (lastApp) {
-      // 3. Ambil website yg belum di-submit app tersebut yg DR nya paling tinggi
-      const targetWebsite = findHighestDrUnsubmittedWebsite(lastApp);
-      if (targetWebsite) {
-        return {
-          status: 'ready',
-          app: lastApp,
-          website: targetWebsite,
-          source: 'latest_app',
-        };
-      }
+  // 2. Map submission website ID per app
+  const appSubmissionsMap = new Map<string, Set<string>>();
+  for (const sub of submissions) {
+    let set = appSubmissionsMap.get(sub.appId);
+    if (!set) {
+      set = new Set<string>();
+      appSubmissionsMap.set(sub.appId, set);
     }
+    set.add(sub.websiteId);
   }
 
-  // Fallback jika belum ada submission atau app terakhir sudah selesai semua:
-  for (const app of apps) {
-    const targetWebsite = findHighestDrUnsubmittedWebsite(app);
-    if (targetWebsite) {
-      return {
-        status: 'ready',
-        app,
-        website: targetWebsite,
-        source: lastSub ? 'other_app' : 'initial_app',
-      };
-    }
-  }
+  // 3. Cari website unsubmitted dengan DR tertinggi untuk masing-masing app
+  const results: AppRecommendation[] = apps.map((app) => {
+    const submittedIds = appSubmissionsMap.get(app.id) || new Set<string>();
+    const unsubmitted = websites.filter((w) => !submittedIds.has(w.id));
 
-  return { status: 'all_completed' };
+    let recommendedWebsite: Website | null = null;
+    if (unsubmitted.length > 0) {
+      recommendedWebsite = [...unsubmitted].sort((a, b) => {
+        const drA = typeof a.dr === 'number' ? a.dr : -1;
+        const drB = typeof b.dr === 'number' ? b.dr : -1;
+        if (drB !== drA) return drB - drA;
+        return a.name.localeCompare(b.name);
+      })[0];
+    }
+
+    return {
+      app,
+      recommendedWebsite,
+      submittedCount: submittedIds.size,
+      totalWebsites: websites.length,
+      isLatestWorkedApp: Boolean(latestAppId && app.id === latestAppId),
+    };
+  });
+
+  // 4. Urutkan baris:
+  // - App yang masih memiliki rekomendasi (belum selesai) berada di atas
+  // - App yang aktif terakhir berada di urutan teratas
+  // - Kemudian diurutkan berdasarkan DR tertinggi website rekomendasinya
+  // - Terakhir berdasarkan nama App
+  return results.sort((a, b) => {
+    const aHasWork = Boolean(a.recommendedWebsite);
+    const bHasWork = Boolean(b.recommendedWebsite);
+    if (aHasWork !== bHasWork) return aHasWork ? -1 : 1;
+
+    if (a.isLatestWorkedApp && !b.isLatestWorkedApp) return -1;
+    if (!a.isLatestWorkedApp && b.isLatestWorkedApp) return 1;
+
+    if (a.recommendedWebsite && b.recommendedWebsite) {
+      const drA = typeof a.recommendedWebsite.dr === 'number' ? a.recommendedWebsite.dr : -1;
+      const drB = typeof b.recommendedWebsite.dr === 'number' ? b.recommendedWebsite.dr : -1;
+      if (drB !== drA) return drB - drA;
+    }
+
+    return a.app.name.localeCompare(b.app.name);
+  });
 }
 
 export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
@@ -110,7 +117,7 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
   const appMap = new Map<string, AndroidApp>(apps.map((a) => [a.id, a]));
   const websiteMap = new Map<string, Website>(websites.map((w) => [w.id, w]));
 
-  const recommendation = getRecommendedSubmission(apps, websites, submissions, appMap);
+  const appRecommendations = getAppRecommendations(apps, websites, submissions);
 
   // Calculate derived counts
   const todoCount = submissions.filter((s) => s.status === 'TODO').length;
@@ -240,57 +247,187 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
         </div>
       )}
 
-      {/* Recommended Next Action */}
-      {recommendation.status === 'ready' && recommendation.app && recommendation.website && (
+      {/* Recommended Next Actions per App */}
+      {appRecommendations.length > 0 && (
         <div
           data-testid="next-recommended-card"
-          className="bg-gradient-to-r from-indigo-50/90 via-purple-50/70 to-indigo-50/50 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-slate-900 border border-indigo-200 dark:border-indigo-800/80 rounded-2xl p-5 shadow-xs transition-colors"
+          className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 rounded-2xl shadow-xs overflow-hidden transition-colors"
         >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1.5 flex-1">
+          <div className="p-4 sm:p-5 bg-gradient-to-r from-indigo-50/80 via-purple-50/50 to-white dark:from-indigo-950/40 dark:via-purple-950/20 dark:to-slate-900 border-b border-indigo-100 dark:border-indigo-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-600 text-white shadow-xs">
                   <Sparkles className="w-3.5 h-3.5 mr-1" />
                   Rekomendasi Submission Berikutnya
                 </span>
-                <span className="text-xs text-indigo-700 dark:text-indigo-300 font-semibold">
-                  Highest DR Backlink Opportunity
+                <span className="text-xs text-indigo-700 dark:text-indigo-300 font-semibold hidden sm:inline">
+                  1 Target DR Tertinggi per App
                 </span>
               </div>
-
-              <div className="flex flex-wrap items-center gap-2 text-base font-bold text-slate-900 dark:text-white pt-1">
-                <span className="text-indigo-600 dark:text-indigo-400">{recommendation.app.name}</span>
-                <span className="text-slate-400 font-normal">→ submit ke</span>
-                <span className="text-slate-900 dark:text-white underline decoration-indigo-400 underline-offset-4">
-                  {recommendation.website.name}
-                </span>
-                {typeof recommendation.website.dr === 'number' && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                    DR {recommendation.website.dr}
-                  </span>
-                )}
-              </div>
-
-              <p className="text-xs text-slate-600 dark:text-slate-400 max-w-2xl">
-                Berdasarkan submission terakhir, website ini belum di-submit untuk <strong>{recommendation.app.name}</strong> dan memiliki Domain Rating tertinggi.
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                Website target dengan Domain Rating (DR) tertinggi yang belum pernah di-submit untuk masing-masing aplikasi Anda.
               </p>
             </div>
+            {websites.length > 0 && (
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium shrink-0">
+                Total {websites.length} website target
+              </span>
+            )}
+          </div>
 
-            <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
-              <button
-                onClick={() =>
-                  onNavigate('submissions', {
-                    appId: recommendation.app!.id,
-                    websiteId: recommendation.website!.id,
-                  })
-                }
-                data-testid="btn-create-recommended-submission"
-                className="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer"
-              >
-                <span>Buat Submission Ini</span>
-                <ArrowRight className="w-4 h-4 ml-1.5" />
-              </button>
-            </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <th className="py-3 px-4">Android App</th>
+                  <th className="py-3 px-4">Rekomendasi Target Website</th>
+                  <th className="py-3 px-4 text-center">Progress</th>
+                  <th className="py-3 px-4 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                {appRecommendations.map((item, index) => {
+                  const pct = item.totalWebsites > 0 ? Math.round((item.submittedCount / item.totalWebsites) * 100) : 0;
+                  return (
+                    <tr
+                      key={item.app.id}
+                      data-testid={`rec-row-${item.app.id}`}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                    >
+                      {/* Col 1: App */}
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {item.app.name}
+                          </span>
+                          {item.isLatestWorkedApp && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
+                              Aktif Terakhir
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          {item.app.playStoreUrl && (
+                            <a
+                              href={item.app.playStoreUrl.startsWith('http') ? item.app.playStoreUrl : `https://${item.app.playStoreUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:underline"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5 mr-1" />
+                              Play Store
+                            </a>
+                          )}
+                          {item.app.landingPageUrl && (
+                            <a
+                              href={item.app.landingPageUrl.startsWith('http') ? item.app.landingPageUrl : `https://${item.app.landingPageUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-[11px] text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5 mr-1" />
+                              Landing Page
+                            </a>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Col 2: Target Website */}
+                      <td className="py-3.5 px-4 align-top">
+                        {item.recommendedWebsite ? (
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold text-slate-900 dark:text-white">
+                                {item.recommendedWebsite.name}
+                              </span>
+                              {typeof item.recommendedWebsite.dr === 'number' && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                  DR {item.recommendedWebsite.dr}
+                                </span>
+                              )}
+                            </div>
+                            {item.recommendedWebsite.url && (
+                              <div>
+                                <a
+                                  href={
+                                    item.recommendedWebsite.url.startsWith('http')
+                                      ? item.recommendedWebsite.url
+                                      : `https://${item.recommendedWebsite.url}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline truncate max-w-xs"
+                                  title={item.recommendedWebsite.url}
+                                >
+                                  <ExternalLink className="w-3 h-3 mr-1 shrink-0" />
+                                  <span className="truncate">{item.recommendedWebsite.url}</span>
+                                </a>
+                              </div>
+                            )}
+                            {item.recommendedWebsite.notes && (
+                              <p
+                                className="text-[11px] text-slate-500 dark:text-slate-400 italic line-clamp-1 max-w-xs"
+                                title={item.recommendedWebsite.notes}
+                              >
+                                {item.recommendedWebsite.notes}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 py-1">
+                            <CheckCircle2 className="w-4 h-4 shrink-0" />
+                            <span>Semua website sudah di-submit!</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Col 3: Progress */}
+                      <td className="py-3.5 px-4 align-top text-center">
+                        <div className="inline-flex flex-col items-center">
+                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            {item.submittedCount} / {item.totalWebsites}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            ({pct}%)
+                          </span>
+                          <div className="w-20 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 mt-1 overflow-hidden">
+                            <div
+                              className={`h-1.5 rounded-full transition-all ${
+                                pct === 100 ? 'bg-emerald-500' : 'bg-indigo-600 dark:bg-indigo-500'
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Col 4: Aksi */}
+                      <td className="py-3.5 px-4 align-top text-right">
+                        {item.recommendedWebsite ? (
+                          <button
+                            onClick={() =>
+                              onNavigate('submissions', {
+                                appId: item.app.id,
+                                websiteId: item.recommendedWebsite!.id,
+                              })
+                            }
+                            data-testid={index === 0 ? 'btn-create-recommended-submission' : `btn-create-rec-${item.app.id}`}
+                            className="inline-flex items-center px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs hover:shadow-md transition-all cursor-pointer whitespace-nowrap"
+                          >
+                            <span>Buat Submission</span>
+                            <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900/50">
+                            Selesai
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -322,29 +459,34 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
               Tidak ada submission pending di antrean saat ini.
             </p>
 
-            {recommendation.status === 'ready' && recommendation.app && recommendation.website ? (
-              <div className="mt-5 p-4 max-w-lg mx-auto bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
-                <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mb-3">
-                  Langkah berikutnya: Submit <strong>{recommendation.app.name}</strong> ke{' '}
-                  <strong>{recommendation.website.name}</strong>{' '}
-                  {typeof recommendation.website.dr === 'number' && `(DR ${recommendation.website.dr})`}
-                </p>
-                <button
-                  onClick={() =>
-                    onNavigate('submissions', {
-                      appId: recommendation.app!.id,
-                      websiteId: recommendation.website!.id,
-                    })
-                  }
-                  data-testid="btn-empty-state-recommendation"
-                  className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs cursor-pointer transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                  Buat Submission Rekomendasi
-                </button>
-              </div>
-            ) : (
-              <div className="mt-5 flex justify-center gap-3">
+            {(() => {
+              const primaryRec = appRecommendations.find((r) => r.recommendedWebsite !== null);
+              if (primaryRec && primaryRec.recommendedWebsite) {
+                return (
+                  <div className="mt-5 p-4 max-w-lg mx-auto bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mb-3">
+                      Langkah berikutnya: Submit <strong>{primaryRec.app.name}</strong> ke{' '}
+                      <strong>{primaryRec.recommendedWebsite.name}</strong>{' '}
+                      {typeof primaryRec.recommendedWebsite.dr === 'number' && `(DR ${primaryRec.recommendedWebsite.dr})`}
+                    </p>
+                    <button
+                      onClick={() =>
+                        onNavigate('submissions', {
+                          appId: primaryRec.app.id,
+                          websiteId: primaryRec.recommendedWebsite!.id,
+                        })
+                      }
+                      data-testid="btn-empty-state-recommendation"
+                      className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs cursor-pointer transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                      Buat Submission Rekomendasi
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                <div className="mt-5 flex justify-center gap-3">
                 <button
                   onClick={() => onNavigate('apps')}
                   className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-750 cursor-pointer"
@@ -364,8 +506,9 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
                   + Create Submission
                 </button>
               </div>
-            )}
-          </div>
+            );
+          })()}
+        </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {queue.map((sub) => {

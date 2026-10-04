@@ -587,6 +587,60 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await copyLandingBtn.click();
     await expect(copyLandingBtn).toContainText('Copied');
   });
+
+  test('19. Multi-app recommendation table: renders 1 row per app with highest DR unsubmitted site', async ({ page }) => {
+    await page.goto('/');
+
+    // 1. Create App Alpha and App Beta
+    await page.getByTestId('nav-apps').click();
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Alpha App');
+    await page.getByTestId('btn-submit-app').click();
+
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Beta App');
+    await page.getByTestId('btn-submit-app').click();
+
+    // 2. Create Website DR 90 and Website DR 60
+    await page.getByTestId('nav-websites').click();
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('Gold Directory');
+    await page.getByTestId('input-website-dr').fill('90');
+    await page.getByTestId('input-website-url').fill('https://golddir.com');
+    await page.getByTestId('btn-submit-website').click();
+
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('Silver Directory');
+    await page.getByTestId('input-website-dr').fill('60');
+    await page.getByTestId('input-website-url').fill('https://silverdir.com');
+    await page.getByTestId('btn-submit-website').click();
+
+    // 3. Submit Alpha App to Gold Directory
+    await page.getByTestId('nav-submissions').click();
+    await page.getByTestId('btn-add-submission').click();
+    // Select Alpha App
+    await page.getByTestId('input-submission-app').click();
+    await page.getByRole('button', { name: 'Alpha App' }).click();
+    // Select Gold Directory
+    await page.getByTestId('input-submission-website').click();
+    await page.getByRole('button', { name: 'Gold Directory' }).click();
+    await page.getByTestId('btn-submit-submission').click();
+
+    // 4. Go to To Do tab and inspect recommendations table
+    await page.getByTestId('nav-todo').click();
+    const recTable = page.getByTestId('next-recommended-card');
+    await expect(recTable).toBeVisible();
+
+    // Alpha App has already submitted to Gold Directory (DR 90), so its recommendation is Silver Directory (DR 60)
+    await expect(recTable).toContainText('Alpha App');
+    await expect(recTable).toContainText('Silver Directory');
+    await expect(recTable).toContainText('DR 60');
+
+    // Beta App has not submitted to either, so its recommendation is Gold Directory (DR 90)
+    await expect(recTable).toContainText('Beta App');
+    await expect(recTable).toContainText('Gold Directory');
+    await expect(recTable).toContainText('DR 90');
+  });
 });
 
 

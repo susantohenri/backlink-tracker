@@ -5,6 +5,7 @@ export interface AndroidApp {
   name: string;
   playStoreUrl: string;
   landingPageUrl?: string;
+  videoUrl?: string;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -38,6 +39,7 @@ export interface AppFormData {
   name: string;
   playStoreUrl: string;
   landingPageUrl?: string;
+  videoUrl?: string;
   notes: string;
 }
 
