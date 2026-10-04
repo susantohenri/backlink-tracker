@@ -376,4 +376,31 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     const rows = page.locator('tr[data-testid^="submission-row-"]');
     await expect(rows).toHaveCount(1);
   });
+
+  test('14. Dark mode toggle switch works and persists in localStorage', async ({ page }) => {
+    await page.goto('/');
+
+    const toggleBtn = page.getByTestId('btn-toggle-dark-mode');
+    await expect(toggleBtn).toBeVisible();
+
+    // Initially light mode (unless system dark, but localStorage will be set)
+    // Click toggle to enable dark mode
+    await toggleBtn.click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    const themeDark = await page.evaluate(() => localStorage.getItem('theme'));
+    expect(themeDark).toBe('dark');
+
+    // Click toggle again to return to light mode
+    await toggleBtn.click();
+    await expect(page.locator('html')).not.toHaveClass(/dark/);
+    const themeLight = await page.evaluate(() => localStorage.getItem('theme'));
+    expect(themeLight).toBe('light');
+
+    // Toggle to dark and reload to verify persistence across reloads
+    await toggleBtn.click();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await page.reload();
+    await expect(page.locator('html')).toHaveClass(/dark/);
+  });
 });
+

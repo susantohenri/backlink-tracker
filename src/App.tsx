@@ -16,6 +16,29 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Dark mode state: persist to localStorage & reflect on documentElement
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark') return true;
+    if (saved === 'light') return false;
+    return window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)').matches : false;
+  });
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+
+  const toggleDarkMode = () => {
+    setIsDark((prev) => !prev);
+  };
+
   // Synchronize activeTab with URL hash
   useEffect(() => {
     const handleHashChange = () => {
@@ -89,7 +112,7 @@ export function App() {
   const todoCount = submissions.filter((s) => s.status === 'TODO').length;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -97,24 +120,26 @@ export function App() {
         totalSubmissions={submissions.length}
         totalApps={apps.length}
         totalWebsites={websites.length}
+        isDark={isDark}
+        toggleDarkMode={toggleDarkMode}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32" data-testid="loading-state">
-            <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4" />
-            <p className="text-sm font-medium text-slate-600">Connecting to Firestore database...</p>
-            <p className="text-xs text-slate-400 mt-1">If this takes too long, check your Firebase Firestore Rules.</p>
+            <div className="w-10 h-10 border-4 border-indigo-200 dark:border-indigo-900 border-t-indigo-600 dark:border-t-indigo-500 rounded-full animate-spin mb-4" />
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Connecting to Firestore database...</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">If this takes too long, check your Firebase Firestore Rules.</p>
           </div>
         ) : (
           <div>
             {/* Show error banner if Firestore timed out, but still render the app */}
             {loadError && (
-              <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-3">
+              <div className="mb-6 p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-xl flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-rose-800">Firebase Connection Error</p>
-                  <p className="text-xs text-rose-700 mt-0.5">{loadError}</p>
+                  <p className="text-sm font-semibold text-rose-800 dark:text-rose-300">Firebase Connection Error</p>
+                  <p className="text-xs text-rose-700 dark:text-rose-400 mt-0.5">{loadError}</p>
                 </div>
                 <button
                   onClick={() => window.location.reload()}
@@ -149,7 +174,7 @@ export function App() {
         )}
       </main>
 
-      <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
+      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-4 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors duration-200">
         <p>Personal Android App Backlink Tracker • Designed for productivity</p>
       </footer>
     </div>

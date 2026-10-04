@@ -86,25 +86,27 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
         disabled={disabled}
         onClick={handleToggle}
         data-testid={testId}
-        className={`w-full flex items-center justify-between text-left text-sm rounded-lg border py-2 px-3 bg-white transition-colors cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed ${
-          isOpen ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'border-slate-300 hover:border-slate-400'
+        className={`w-full flex items-center justify-between text-left text-sm rounded-lg border py-2 px-3 bg-white dark:bg-slate-800 transition-colors cursor-pointer disabled:bg-slate-100 dark:disabled:bg-slate-900 disabled:cursor-not-allowed ${
+          isOpen
+            ? 'border-indigo-500 ring-2 ring-indigo-500/20'
+            : 'border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600'
         }`}
       >
         <div className="flex-1 truncate mr-2">
           {selectedOption ? (
             <div className="flex items-center gap-1.5 truncate">
-              <span className="font-medium text-slate-900">{selectedOption.label}</span>
+              <span className="font-medium text-slate-900 dark:text-white">{selectedOption.label}</span>
               {selectedOption.badge && (
-                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">
                   {selectedOption.badge}
                 </span>
               )}
               {selectedOption.subLabel && (
-                <span className="text-xs text-slate-400 truncate">({selectedOption.subLabel})</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500 truncate">({selectedOption.subLabel})</span>
               )}
             </div>
           ) : (
-            <span className="text-slate-400">{placeholder}</span>
+            <span className="text-slate-400 dark:text-slate-500">{placeholder}</span>
           )}
         </div>
         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -112,9 +114,9 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-lg border border-slate-200 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
           {/* Search Box */}
-          <div className="p-2 border-b border-slate-100 bg-slate-50/70">
+          <div className="p-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/80">
             <div className="relative">
               <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
               <input
@@ -124,13 +126,13 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 data-testid={testId ? `${testId}-search` : undefined}
-                className="w-full pl-8 pr-7 py-1.5 text-xs rounded-md border border-slate-300 bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
+                className="w-full pl-8 pr-7 py-1.5 text-xs rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-indigo-500"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 p-0.5"
+                  className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -139,9 +141,9 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           </div>
 
           {/* Options List */}
-          <div className="max-h-60 overflow-y-auto divide-y divide-slate-50 p-1">
+          <div className="max-h-60 overflow-y-auto divide-y divide-slate-50 dark:divide-slate-700/50 p-1">
             {filteredOptions.length === 0 ? (
-              <div className="p-4 text-center text-xs text-slate-500 italic">No matching results found</div>
+              <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400 italic">No matching results found</div>
             ) : (
               filteredOptions.map((opt) => {
                 const isSelected = opt.value === value;
@@ -153,24 +155,24 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     data-testid={testId ? `${testId}-option-${opt.value}` : undefined}
                     className={`w-full text-left px-3 py-2 text-xs rounded-md transition-colors flex items-start justify-between gap-2 cursor-pointer ${
                       isSelected
-                        ? 'bg-indigo-50 text-indigo-900 font-semibold'
-                        : 'text-slate-700 hover:bg-slate-100'
+                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 font-semibold'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60'
                     }`}
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="font-medium truncate">{opt.label}</span>
                         {opt.badge && (
-                          <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200 shrink-0">
+                          <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">
                             {opt.badge}
                           </span>
                         )}
                       </div>
-                      {opt.subLabel && <p className="text-[11px] text-slate-400 truncate mt-0.5">{opt.subLabel}</p>}
-                      {opt.description && <p className="text-[11px] text-slate-500 italic truncate mt-0.5">{opt.description}</p>}
+                      {opt.subLabel && <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">{opt.subLabel}</p>}
+                      {opt.description && <p className="text-[11px] text-slate-500 dark:text-slate-400 italic truncate mt-0.5">{opt.description}</p>}
                     </div>
 
-                    {isSelected && <Check className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />}
+                    {isSelected && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />}
                   </button>
                 );
               })
