@@ -8,6 +8,7 @@ import {
   serverTimestamp,
   query,
   orderBy,
+  writeBatch,
   type DocumentData,
   type QuerySnapshot
 } from 'firebase/firestore';
@@ -218,6 +219,7 @@ export const subscribeWebsites = (callback: (websites: Website[]) => void): (() 
           name: data.name ?? '',
           url: data.url ?? '',
           notes: data.notes ?? '',
+          dr: typeof data.dr === 'number' ? data.dr : undefined,
           createdAt: formatTimestamp(data.createdAt),
           updatedAt: formatTimestamp(data.updatedAt),
         };
@@ -243,6 +245,7 @@ export const createWebsite = async (formData: WebsiteFormData): Promise<string> 
       name: trimmedName,
       url: formData.url.trim(),
       notes: formData.notes.trim(),
+      dr: typeof formData.dr === 'number' ? formData.dr : undefined,
       createdAt: now,
       updatedAt: now,
     };
@@ -252,15 +255,65 @@ export const createWebsite = async (formData: WebsiteFormData): Promise<string> 
   }
 
   const now = new Date().toISOString();
-  const docRef = await addDoc(collection(db, 'websites'), {
+  const docData: Record<string, unknown> = {
     name: trimmedName,
     url: formData.url.trim(),
     notes: formData.notes.trim(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     createdAtFallback: now,
-  });
+  };
+  if (typeof formData.dr === 'number') {
+    docData.dr = formData.dr;
+  }
+  const docRef = await addDoc(collection(db, 'websites'), docData);
   return docRef.id;
+};
+
+export const createWebsitesBatch = async (websitesList: WebsiteFormData[]): Promise<number> => {
+  if (websitesList.length === 0) return 0;
+
+  if (isMockMode()) {
+    const now = new Date().toISOString();
+    const newSites: Website[] = websitesList.map((formData, idx) => ({
+      id: 'site_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).substring(2, 7),
+      name: formData.name.trim(),
+      url: formData.url.trim(),
+      notes: formData.notes.trim(),
+      dr: typeof formData.dr === 'number' ? formData.dr : undefined,
+      createdAt: now,
+      updatedAt: now,
+    }));
+    mockWebsites = [...newSites, ...mockWebsites];
+    notifyMockWebsites();
+    return newSites.length;
+  }
+
+  const chunkSize = 450;
+  let count = 0;
+  for (let i = 0; i < websitesList.length; i += chunkSize) {
+    const chunk = websitesList.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    const now = new Date().toISOString();
+    for (const item of chunk) {
+      const docRef = doc(collection(db, 'websites'));
+      const docData: Record<string, unknown> = {
+        name: item.name.trim(),
+        url: item.url.trim(),
+        notes: item.notes.trim(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdAtFallback: now,
+      };
+      if (typeof item.dr === 'number') {
+        docData.dr = item.dr;
+      }
+      batch.set(docRef, docData);
+    }
+    await batch.commit();
+    count += chunk.length;
+  }
+  return count;
 };
 
 export const updateWebsite = async (id: string, formData: Partial<WebsiteFormData>): Promise<void> => {
@@ -276,6 +329,7 @@ export const updateWebsite = async (id: string, formData: Partial<WebsiteFormDat
       name: formData.name !== undefined ? formData.name.trim() : mockWebsites[idx].name,
       url: formData.url !== undefined ? formData.url.trim() : mockWebsites[idx].url,
       notes: formData.notes !== undefined ? formData.notes.trim() : mockWebsites[idx].notes,
+      dr: formData.dr !== undefined ? formData.dr : mockWebsites[idx].dr,
       updatedAt: new Date().toISOString(),
     };
     notifyMockWebsites();
@@ -288,6 +342,7 @@ export const updateWebsite = async (id: string, formData: Partial<WebsiteFormDat
   if (formData.name !== undefined) updates.name = formData.name.trim();
   if (formData.url !== undefined) updates.url = formData.url.trim();
   if (formData.notes !== undefined) updates.notes = formData.notes.trim();
+  if (formData.dr !== undefined) updates.dr = formData.dr;
 
   await updateDoc(doc(db, 'websites', id), updates);
 };

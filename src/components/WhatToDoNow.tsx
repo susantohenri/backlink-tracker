@@ -213,8 +213,13 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
                           {app ? app.name : <span className="text-rose-500 italic">Unknown App</span>}
                         </span>
                         <span className="text-slate-400">×</span>
-                        <span className="font-semibold text-slate-800 text-base" data-testid={`queue-item-website-${sub.id}`}>
-                          {website ? website.name : <span className="text-rose-500 italic">Unknown Website</span>}
+                        <span className="font-semibold text-slate-800 text-base inline-flex items-center gap-1.5" data-testid={`queue-item-website-${sub.id}`}>
+                          <span>{website ? website.name : <span className="text-rose-500 italic">Unknown Website</span>}</span>
+                          {typeof website?.dr === 'number' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              DR {website.dr}
+                            </span>
+                          )}
                         </span>
                       </div>
 

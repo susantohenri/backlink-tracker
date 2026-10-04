@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { Website, Submission, WebsiteFormData } from '../types';
-import { createWebsite, updateWebsite, deleteWebsite } from '../services/storage';
-import { Plus, Search, Trash2, Edit2, ExternalLink, AlertTriangle, X, Check, Globe } from 'lucide-react';
+import { createWebsite, updateWebsite, deleteWebsite, createWebsitesBatch } from '../services/storage';
+import { PRESET_WEBSITES } from '../data/presetWebsites';
+import { Plus, Search, Trash2, Edit2, ExternalLink, AlertTriangle, X, Check, Globe, ArrowUpDown, Sparkles } from 'lucide-react';
 
 interface WebsitesViewProps {
   websites: Website[];
@@ -15,18 +16,22 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
   // Form states
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
+  const [dr, setDr] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Search & Feedback
+  // Search, Filter & Sort
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'dr_desc' | 'dr_asc' | 'name_asc' | 'name_desc' | 'newest'>('dr_desc');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   const resetForm = () => {
     setName('');
     setUrl('');
+    setDr('');
     setNotes('');
     setEditingId(null);
     setShowCreateForm(false);
@@ -36,6 +41,7 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
   const handleOpenCreate = () => {
     setName('');
     setUrl('');
+    setDr('');
     setNotes('');
     setEditingId(null);
     setShowCreateForm(true);
@@ -45,6 +51,7 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
   const handleOpenEdit = (site: Website) => {
     setName(site.name);
     setUrl(site.url || '');
+    setDr(site.dr !== undefined && site.dr !== null ? String(site.dr) : '');
     setNotes(site.notes || '');
     setEditingId(site.id);
     setShowCreateForm(true);
@@ -63,9 +70,11 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
 
     try {
       setSubmitting(true);
+      const parsedDr = dr.trim() !== '' ? parseInt(dr.trim(), 10) : undefined;
       const data: WebsiteFormData = {
         name: name.trim(),
         url: url.trim(),
+        dr: isNaN(parsedDr as number) ? undefined : parsedDr,
         notes: notes.trim(),
       };
 
@@ -95,21 +104,67 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
     }
   };
 
+  const handleSeedPresets = async () => {
+    try {
+      setSeeding(true);
+      setErrorMsg(null);
+      // Filter out websites that already exist by name or URL
+      const existingNames = new Set(websites.map((w) => w.name.toLowerCase().trim()));
+      const existingUrls = new Set(websites.map((w) => (w.url || '').toLowerCase().trim().replace(/\/+$/, '')));
+
+      const missing = PRESET_WEBSITES.filter((p) => {
+        const normName = p.name.toLowerCase().trim();
+        const normUrl = p.url.toLowerCase().trim().replace(/\/+$/, '');
+        return !existingNames.has(normName) && !existingUrls.has(normUrl);
+      });
+
+      if (missing.length === 0) {
+        setSuccessMsg('All 116 preset websites are already present.');
+        return;
+      }
+
+      const count = await createWebsitesBatch(missing);
+      setSuccessMsg(`Successfully imported ${count} target websites.`);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to import preset websites.');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   // Submission count map per website (derived)
   const submissionCountMap = new Map<string, number>();
   submissions.forEach((s) => {
     submissionCountMap.set(s.websiteId, (submissionCountMap.get(s.websiteId) || 0) + 1);
   });
 
-  // Filtered websites
-  const filteredWebsites = websites.filter((site) => {
-    const q = searchQuery.toLowerCase();
-    return (
-      site.name.toLowerCase().includes(q) ||
-      (site.url || '').toLowerCase().includes(q) ||
-      (site.notes || '').toLowerCase().includes(q)
-    );
-  });
+  // Filtered and Sorted websites
+  const filteredWebsites = websites
+    .filter((site) => {
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
+      return (
+        site.name.toLowerCase().includes(q) ||
+        (site.url || '').toLowerCase().includes(q) ||
+        (site.notes || '').toLowerCase().includes(q) ||
+        (site.dr !== undefined && String(site.dr).includes(q))
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === 'dr_desc') {
+        return (b.dr ?? -1) - (a.dr ?? -1);
+      }
+      if (sortBy === 'dr_asc') {
+        return (a.dr ?? 999) - (b.dr ?? 999);
+      }
+      if (sortBy === 'name_asc') {
+        return a.name.localeCompare(b.name);
+      }
+      if (sortBy === 'name_desc') {
+        return b.name.localeCompare(a.name);
+      }
+      return 0; // 'newest' preserving default order
+    });
 
   return (
     <div className="space-y-6">
@@ -122,14 +177,29 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
           </p>
         </div>
 
-        <button
-          onClick={handleOpenCreate}
-          data-testid="btn-add-website"
-          className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4 mr-1.5" />
-          Add Website
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {websites.length < PRESET_WEBSITES.length && (
+            <button
+              onClick={handleSeedPresets}
+              disabled={seeding}
+              data-testid="btn-seed-websites"
+              className="inline-flex items-center px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              title="Import pre-configured list of high-DR backlink sites"
+            >
+              <Sparkles className="w-4 h-4 mr-1.5 text-indigo-600" />
+              {seeding ? 'Importing...' : `Import Presets (${PRESET_WEBSITES.length})`}
+            </button>
+          )}
+
+          <button
+            onClick={handleOpenCreate}
+            data-testid="btn-add-website"
+            className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add Website
+          </button>
+        </div>
       </div>
 
       {/* Notifications */}
@@ -174,7 +244,7 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
           </div>
 
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Website Name <span className="text-rose-500">*</span>
@@ -187,6 +257,22 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
                   data-testid="input-website-name"
                   className="w-full text-sm rounded-lg border border-slate-300 bg-white py-2 px-3 focus:ring-2 focus:ring-indigo-500"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Domain Rating (DR)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="e.g. 74"
+                  value={dr}
+                  onChange={(e) => setDr(e.target.value)}
+                  data-testid="input-website-dr"
+                  className="w-full text-sm rounded-lg border border-slate-300 bg-white py-2 px-3 focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -240,22 +326,41 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+      {/* Search & Sort Controls */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative w-full max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
           <input
             type="text"
-            placeholder="Search websites by name, URL, or notes..."
+            placeholder="Search websites by name, URL, DR, or notes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             data-testid="input-search-websites"
             className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-indigo-500"
           />
         </div>
-        <span className="text-xs text-slate-500 font-medium">
-          Total: {websites.length} {websites.length === 1 ? 'Website' : 'Websites'}
-        </span>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
+            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+            <span>Sort:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="py-1.5 px-2.5 text-xs rounded-lg border border-slate-300 bg-white font-medium text-slate-700 focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="dr_desc">DR: High to Low</option>
+              <option value="dr_asc">DR: Low to High</option>
+              <option value="name_asc">Name: A → Z</option>
+              <option value="name_desc">Name: Z → A</option>
+              <option value="newest">Recently Added</option>
+            </select>
+          </div>
+
+          <span className="text-xs text-slate-500 font-semibold shrink-0">
+            Total: {filteredWebsites.length} {filteredWebsites.length === 1 ? 'Site' : 'Sites'}
+          </span>
+        </div>
       </div>
 
       {/* Websites Table */}
@@ -266,9 +371,19 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
             <p className="text-sm font-semibold text-slate-700">No Target Websites found</p>
             <p className="text-xs text-slate-500 mt-1">
               {websites.length === 0
-                ? 'Add your first target website or directory.'
+                ? 'Add your first target website or click "Import Presets" to load 116 curated websites.'
                 : 'No websites matched your search.'}
             </p>
+            {websites.length === 0 && (
+              <button
+                onClick={handleSeedPresets}
+                disabled={seeding}
+                className="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                {seeding ? 'Importing...' : `Import All 116 Preset Websites`}
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -276,6 +391,7 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
               <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Website Name</th>
+                  <th className="py-3 px-4 text-center">DR</th>
                   <th className="py-3 px-4">URL</th>
                   <th className="py-3 px-4 text-center">Submissions</th>
                   <th className="py-3 px-4">Notes</th>
@@ -295,16 +411,37 @@ export const WebsitesView: React.FC<WebsitesViewProps> = ({ websites, submission
                         {site.name}
                       </td>
 
+                      {/* Domain Rating Badge */}
+                      <td className="py-3 px-4 text-center">
+                        {typeof site.dr === 'number' ? (
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
+                              site.dr >= 80
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : site.dr >= 60
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : site.dr >= 40
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}
+                          >
+                            DR {site.dr}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic text-xs">-</span>
+                        )}
+                      </td>
+
                       <td className="py-3 px-4 text-xs">
                         {site.url ? (
                           <a
                             href={site.url.startsWith('http') ? site.url : `https://${site.url}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center text-indigo-600 hover:text-indigo-800 hover:underline"
+                            className="inline-flex items-center text-indigo-600 hover:text-indigo-800 hover:underline font-medium"
                           >
-                            <ExternalLink className="w-3.5 h-3.5 mr-1" />
-                            {site.url}
+                            <ExternalLink className="w-3.5 h-3.5 mr-1 shrink-0" />
+                            <span className="truncate max-w-xs">{site.url}</span>
                           </a>
                         ) : (
                           <span className="text-slate-400 italic">Not set</span>

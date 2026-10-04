@@ -14,6 +14,7 @@ export interface Website {
   name: string;
   url: string;
   notes: string;
+  dr?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -41,6 +42,7 @@ export interface WebsiteFormData {
   name: string;
   url: string;
   notes: string;
+  dr?: number;
 }
 
 export interface SubmissionFormData {

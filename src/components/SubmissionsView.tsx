@@ -282,7 +282,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                   ) : (
                     websites.map((site) => (
                       <option key={site.id} value={site.id}>
-                        {site.name} ({site.url})
+                        {site.name} {typeof site.dr === 'number' ? `(DR ${site.dr})` : ''} ({site.url})
                       </option>
                     ))
                   )}
@@ -488,7 +488,14 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
 
                       {/* Website Name resolved dynamically */}
                       <td className="py-3 px-4" data-testid={`sub-website-name-${sub.id}`}>
-                        <div className="font-medium text-slate-900">{website ? website.name : 'Unknown Website'}</div>
+                        <div className="font-medium text-slate-900 flex items-center gap-1.5">
+                          <span>{website ? website.name : 'Unknown Website'}</span>
+                          {typeof website?.dr === 'number' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              DR {website.dr}
+                            </span>
+                          )}
+                        </div>
                         {website?.url && (
                           <a
                             href={website.url.startsWith('http') ? website.url : `https://${website.url}`}
