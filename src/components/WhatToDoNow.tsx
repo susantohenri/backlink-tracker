@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { AndroidApp, Website, Submission, SubmissionStatus } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { updateSubmission } from '../services/storage';
-import { ExternalLink, CheckCircle2, Clock, Check, AlertCircle, ArrowRight, Edit3, X, Save, Sparkles } from 'lucide-react';
+import { ExternalLink, CheckCircle2, Clock, Check, AlertCircle, ArrowRight, Edit3, X, Save, Sparkles, SkipForward } from 'lucide-react';
 
 interface WhatToDoNowProps {
   apps: AndroidApp[];
@@ -117,6 +117,7 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
   const waitingCount = submissions.filter((s) => s.status === 'WAITING').length;
   const approvedCount = submissions.filter((s) => s.status === 'APPROVED').length;
   const rejectedCount = submissions.filter((s) => s.status === 'REJECTED').length;
+  const skippedCount = submissions.filter((s) => s.status === 'SKIPPED').length;
 
   // Queue prioritization: TODO first, WAITING second
   const todoItems = submissions.filter((s) => s.status === 'TODO');
@@ -163,7 +164,7 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
   return (
     <div className="space-y-6">
       {/* Overview Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 shadow-xs flex items-center justify-between transition-colors">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">To Do Queue</p>
@@ -213,6 +214,19 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
           </div>
           <div className="p-3 bg-rose-50 dark:bg-rose-950/60 rounded-lg text-rose-600 dark:text-rose-400">
             <X className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors col-span-2 sm:col-span-1">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Skipped</p>
+            <p data-testid="metric-skipped-count" className="text-3xl font-extrabold text-slate-700 dark:text-slate-300 mt-1">
+              {skippedCount}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Bypassed sites</p>
+          </div>
+          <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400">
+            <SkipForward className="w-6 h-6" />
           </div>
         </div>
       </div>
@@ -491,6 +505,18 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
                         >
                           REJECTED
                         </button>
+                        <button
+                          title="Mark SKIPPED"
+                          onClick={() => handleQuickStatusChange(sub, 'SKIPPED')}
+                          data-testid={`quick-status-skipped-${sub.id}`}
+                          className={`px-2 py-1 text-xs font-semibold rounded cursor-pointer transition-colors ${
+                            sub.status === 'SKIPPED'
+                              ? 'bg-slate-600 text-white'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          SKIPPED
+                        </button>
                       </div>
 
                       <button
@@ -520,6 +546,7 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
                             <option value="WAITING">WAITING</option>
                             <option value="APPROVED">APPROVED</option>
                             <option value="REJECTED">REJECTED</option>
+                            <option value="SKIPPED">SKIPPED</option>
                           </select>
                         </div>
                         <div>

@@ -205,7 +205,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
         return siteA.localeCompare(siteB);
       }
       if (sortBy === 'status') {
-        const order = { APPROVED: 1, WAITING: 2, TODO: 3, REJECTED: 4 };
+        const order: Record<SubmissionStatus, number> = { APPROVED: 1, WAITING: 2, TODO: 3, REJECTED: 4, SKIPPED: 5 };
         return order[a.status] - order[b.status];
       }
       return 0;
@@ -356,6 +356,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                   <option value="WAITING">WAITING</option>
                   <option value="TODO">TODO</option>
                   <option value="REJECTED">REJECTED</option>
+                  <option value="SKIPPED">SKIPPED</option>
                 </select>
               </div>
 
@@ -455,6 +456,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
               <option value="WAITING">WAITING</option>
               <option value="TODO">TODO</option>
               <option value="REJECTED">REJECTED</option>
+              <option value="SKIPPED">SKIPPED</option>
             </select>
           </div>
 

@@ -460,6 +460,43 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await expect(recCard).toContainText('Low DR Site');
     await expect(recCard).toContainText('DR 50');
   });
+
+  test('16. SKIPPED status: select in form, view badge, check metric count and filter', async ({ page }) => {
+    await page.goto('/');
+
+    // 1. Create an App and Website
+    await page.getByTestId('nav-apps').click();
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Skip Test App');
+    await page.getByTestId('btn-submit-app').click();
+
+    await page.getByTestId('nav-websites').click();
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('Skip Test Site');
+    await page.getByTestId('btn-submit-website').click();
+
+    // 2. Go to Submissions, create submission with status SKIPPED
+    await page.getByTestId('nav-submissions').click();
+    await page.getByTestId('btn-add-submission').click();
+    await page.getByTestId('input-submission-status').selectOption('SKIPPED');
+    await page.getByTestId('btn-submit-submission').click();
+
+    // 3. Verify row has status badge SKIPPED
+    await expect(page.getByTestId('status-badge-skipped')).toBeVisible();
+    await expect(page.getByTestId('status-badge-skipped')).toContainText('SKIPPED');
+
+    // 4. Verify filter by SKIPPED works
+    await page.getByTestId('filter-status').selectOption('SKIPPED');
+    const rows = page.locator('tr[data-testid^="submission-row-"]');
+    await expect(rows).toHaveCount(1);
+
+    // 5. Check "What To Do Now" metrics: Skipped count = 1
+    await page.getByTestId('nav-todo').click();
+    const skippedMetric = page.getByTestId('metric-skipped-count');
+    await expect(skippedMetric).toBeVisible();
+    await expect(skippedMetric).toHaveText('1');
+  });
 });
+
 
 

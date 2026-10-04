@@ -1,4 +1,4 @@
-export type SubmissionStatus = 'TODO' | 'WAITING' | 'APPROVED' | 'REJECTED';
+export type SubmissionStatus = 'TODO' | 'WAITING' | 'APPROVED' | 'REJECTED' | 'SKIPPED';
 
 export interface AndroidApp {
   id: string;
