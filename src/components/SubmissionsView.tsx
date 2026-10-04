@@ -415,6 +415,46 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                           </button>
                         )}
                       </div>
+
+                      {/* Video URL row */}
+                      <div className="flex items-center justify-between gap-2 border-t border-slate-200/60 dark:border-slate-700/60 pt-1.5">
+                        <div className="flex items-center gap-1.5 overflow-hidden min-w-0 flex-1">
+                          <span className="text-slate-500 dark:text-slate-400 font-medium shrink-0">Video URL:</span>
+                          {selectedApp.videoUrl ? (
+                            <a
+                              href={selectedApp.videoUrl.startsWith('http') ? selectedApp.videoUrl : `https://${selectedApp.videoUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              data-testid="selected-app-video-link"
+                              className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium hover:underline truncate"
+                              title={selectedApp.videoUrl}
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 mr-1 shrink-0" />
+                              <span className="truncate">{selectedApp.videoUrl}</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-400 italic">No URL configured</span>
+                          )}
+                        </div>
+                        {selectedApp.videoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyUrl(selectedApp.videoUrl!, 'video')}
+                            data-testid="btn-copy-video-url"
+                            className="inline-flex items-center gap-1 p-1 px-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded cursor-pointer transition-colors shrink-0"
+                            title={copiedType === 'video' ? 'Copied!' : 'Copy Video URL'}
+                          >
+                            {copiedType === 'video' ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Copied</span>
+                              </>
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })()}
@@ -725,6 +765,17 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                             >
                               <ExternalLink className="w-2.5 h-2.5 mr-1" />
                               Landing Page
+                            </a>
+                          )}
+                          {app?.videoUrl && (
+                            <a
+                              href={app.videoUrl.startsWith('http') ? app.videoUrl : `https://${app.videoUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-xs text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 hover:underline"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5 mr-1" />
+                              Video
                             </a>
                           )}
                         </div>

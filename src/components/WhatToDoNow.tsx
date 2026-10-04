@@ -577,6 +577,16 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
                             Landing Page URL
                           </a>
                         )}
+                        {app?.videoUrl && (
+                          <a
+                            href={app.videoUrl.startsWith('http') ? app.videoUrl : `https://${app.videoUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 hover:underline"
+                          >
+                            Video URL
+                          </a>
+                        )}
                         {sub.postUrl && (
                           <a
                             href={sub.postUrl.startsWith('http') ? sub.postUrl : `https://${sub.postUrl}`}

@@ -641,6 +641,50 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await expect(recTable).toContainText('Gold Directory');
     await expect(recTable).toContainText('DR 90');
   });
+
+  test('20. App Video URL creation, table display, and copy button in submission form below dropdown', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.goto('/');
+
+    // 1. Create an App with Video URL
+    await page.getByTestId('nav-apps').click();
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Video Showcase App');
+    await page.getByTestId('input-app-url').fill('https://play.google.com/store/apps/details?id=com.showcase.app');
+    await page.getByTestId('input-app-landing-url').fill('https://showcaseapp.io');
+    await page.getByTestId('input-app-video-url').fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    await page.getByTestId('btn-submit-app').click();
+
+    await expect(page.getByTestId('app-success-alert')).toBeVisible();
+
+    // Verify Video URL in Apps table
+    const appsTable = page.getByTestId('apps-table');
+    await expect(appsTable).toContainText('Video Showcase App');
+    await expect(appsTable).toContainText('Watch Video');
+
+    // 2. Create Website
+    await page.getByTestId('nav-websites').click();
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('Video Backlink Site');
+    await page.getByTestId('input-website-url').fill('https://videobacklink.com');
+    await page.getByTestId('btn-submit-website').click();
+
+    // 3. Open Submission form
+    await page.getByTestId('nav-submissions').click();
+    await page.getByTestId('btn-add-submission').click();
+    await expect(page.getByTestId('submission-form-card')).toBeVisible();
+
+    // Verify selected-app-info container shows Video URL below dropdown
+    const videoLink = page.getByTestId('selected-app-video-link');
+    await expect(videoLink).toBeVisible();
+    await expect(videoLink).toContainText('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+
+    // Verify copy button for Video URL
+    const copyVideoBtn = page.getByTestId('btn-copy-video-url');
+    await expect(copyVideoBtn).toBeVisible();
+    await copyVideoBtn.click();
+    await expect(copyVideoBtn).toContainText('Copied');
+  });
 });
 
 
