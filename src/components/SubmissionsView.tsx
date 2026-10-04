@@ -9,19 +9,29 @@ interface SubmissionsViewProps {
   apps: AndroidApp[];
   websites: Website[];
   submissions: Submission[];
+  initialAppId?: string;
+  initialWebsiteId?: string;
+  autoOpenForm?: boolean;
+  returnToTodoOnSubmit?: boolean;
+  onNavigateToTodo?: () => void;
 }
 
 export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   apps,
   websites,
   submissions,
+  initialAppId,
+  initialWebsiteId,
+  autoOpenForm,
+  returnToTodoOnSubmit,
+  onNavigateToTodo,
 }) => {
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(Boolean(autoOpenForm));
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form states
-  const [selectedAppId, setSelectedAppId] = useState('');
-  const [selectedWebsiteId, setSelectedWebsiteId] = useState('');
+  const [selectedAppId, setSelectedAppId] = useState(initialAppId || apps[0]?.id || '');
+  const [selectedWebsiteId, setSelectedWebsiteId] = useState(initialWebsiteId || websites[0]?.id || '');
   // User requirement: default status is APPROVED
   const [formStatus, setFormStatus] = useState<SubmissionStatus>('APPROVED');
   // User requirement: submission date jgn otomatis ambil today
@@ -125,11 +135,15 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
       if (editingId) {
         await updateSubmission(editingId, data, submissions);
         setSuccessMsg('Submission updated successfully.');
+        resetForm();
       } else {
         await createSubmission(data, submissions);
         setSuccessMsg('Submission created successfully.');
+        resetForm();
+        if (returnToTodoOnSubmit && onNavigateToTodo) {
+          onNavigateToTodo();
+        }
       }
-      resetForm();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'An error occurred while saving.');
     } finally {
@@ -289,6 +303,42 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                   disabled={websites.length === 0}
                   testId="input-submission-website"
                 />
+
+                {/* Display Target Website URL below the dropdown */}
+                {(() => {
+                  const selectedWebsite = websiteMap.get(selectedWebsiteId);
+                  if (!selectedWebsite) return null;
+                  return (
+                    <div
+                      data-testid="selected-website-info"
+                      className="mt-2 p-2.5 bg-slate-50 dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-1.5 overflow-hidden">
+                        <span className="text-slate-500 dark:text-slate-400 font-medium shrink-0">Website URL:</span>
+                        {selectedWebsite.url ? (
+                          <a
+                            href={selectedWebsite.url.startsWith('http') ? selectedWebsite.url : `https://${selectedWebsite.url}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            data-testid="selected-website-url-link"
+                            className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold hover:underline truncate"
+                            title="Open target website to submit backlink"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 mr-1 shrink-0" />
+                            <span className="truncate">{selectedWebsite.url}</span>
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 italic">No URL configured</span>
+                        )}
+                      </div>
+                      {typeof selectedWebsite.dr === 'number' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 text-[11px] border border-indigo-200 dark:border-indigo-800 shrink-0">
+                          DR {selectedWebsite.dr}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Status Select: Default APPROVED */}

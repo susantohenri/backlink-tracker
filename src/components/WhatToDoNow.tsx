@@ -2,13 +2,94 @@ import React, { useState } from 'react';
 import type { AndroidApp, Website, Submission, SubmissionStatus } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { updateSubmission } from '../services/storage';
-import { ExternalLink, CheckCircle2, Clock, Check, AlertCircle, ArrowRight, Edit3, X, Save } from 'lucide-react';
+import { ExternalLink, CheckCircle2, Clock, Check, AlertCircle, ArrowRight, Edit3, X, Save, Sparkles } from 'lucide-react';
 
 interface WhatToDoNowProps {
   apps: AndroidApp[];
   websites: Website[];
   submissions: Submission[];
-  onNavigate: (tab: 'apps' | 'websites' | 'submissions') => void;
+  onNavigate: (tab: 'apps' | 'websites' | 'submissions', prefill?: { appId: string; websiteId: string }) => void;
+}
+
+interface RecommendedSubmissionResult {
+  status: 'ready' | 'no_apps' | 'no_websites' | 'all_completed';
+  app?: AndroidApp;
+  website?: Website;
+  source?: 'latest_app' | 'other_app' | 'initial_app';
+}
+
+// Recommendation Algorithm:
+// 1. Temukan submission terakhir
+// 2. Ambil app-nya
+// 3. Ambil website yang belum di-submit app tersebut yang DR-nya paling tinggi
+function getRecommendedSubmission(
+  apps: AndroidApp[],
+  websites: Website[],
+  submissions: Submission[],
+  appMap: Map<string, AndroidApp>
+): RecommendedSubmissionResult {
+  if (apps.length === 0) {
+    return { status: 'no_apps' };
+  }
+  if (websites.length === 0) {
+    return { status: 'no_websites' };
+  }
+
+  // Helper: cari website yang belum di-submit app dengan DR tertinggi
+  const findHighestDrUnsubmittedWebsite = (app: AndroidApp): Website | null => {
+    const submittedIds = new Set(
+      submissions.filter((s) => s.appId === app.id).map((s) => s.websiteId)
+    );
+    const unsubmitted = websites.filter((w) => !submittedIds.has(w.id));
+    if (unsubmitted.length === 0) return null;
+
+    return [...unsubmitted].sort((a, b) => {
+      const drA = typeof a.dr === 'number' ? a.dr : -1;
+      const drB = typeof b.dr === 'number' ? b.dr : -1;
+      if (drB !== drA) return drB - drA;
+      return a.name.localeCompare(b.name);
+    })[0];
+  };
+
+  // 1. Temukan submission terakhir (berdasarkan createdAt / updatedAt descending)
+  const sortedSubmissions = [...submissions].sort((a, b) => {
+    const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+    const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+    return timeB - timeA;
+  });
+  const lastSub = sortedSubmissions[0];
+
+  // 2. Jika ada submission terakhir, ambil app-nya
+  if (lastSub) {
+    const lastApp = appMap.get(lastSub.appId);
+    if (lastApp) {
+      // 3. Ambil website yg belum di-submit app tersebut yg DR nya paling tinggi
+      const targetWebsite = findHighestDrUnsubmittedWebsite(lastApp);
+      if (targetWebsite) {
+        return {
+          status: 'ready',
+          app: lastApp,
+          website: targetWebsite,
+          source: 'latest_app',
+        };
+      }
+    }
+  }
+
+  // Fallback jika belum ada submission atau app terakhir sudah selesai semua:
+  for (const app of apps) {
+    const targetWebsite = findHighestDrUnsubmittedWebsite(app);
+    if (targetWebsite) {
+      return {
+        status: 'ready',
+        app,
+        website: targetWebsite,
+        source: lastSub ? 'other_app' : 'initial_app',
+      };
+    }
+  }
+
+  return { status: 'all_completed' };
 }
 
 export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
@@ -28,6 +109,8 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
   // App & Website map for quick resolution
   const appMap = new Map<string, AndroidApp>(apps.map((a) => [a.id, a]));
   const websiteMap = new Map<string, Website>(websites.map((w) => [w.id, w]));
+
+  const recommendation = getRecommendedSubmission(apps, websites, submissions, appMap);
 
   // Calculate derived counts
   const todoCount = submissions.filter((s) => s.status === 'TODO').length;
@@ -143,6 +226,61 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
         </div>
       )}
 
+      {/* Recommended Next Action */}
+      {recommendation.status === 'ready' && recommendation.app && recommendation.website && (
+        <div
+          data-testid="next-recommended-card"
+          className="bg-gradient-to-r from-indigo-50/90 via-purple-50/70 to-indigo-50/50 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-slate-900 border border-indigo-200 dark:border-indigo-800/80 rounded-2xl p-5 shadow-xs transition-colors"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1.5 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-600 text-white shadow-xs">
+                  <Sparkles className="w-3.5 h-3.5 mr-1" />
+                  Rekomendasi Submission Berikutnya
+                </span>
+                <span className="text-xs text-indigo-700 dark:text-indigo-300 font-semibold">
+                  Highest DR Backlink Opportunity
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-base font-bold text-slate-900 dark:text-white pt-1">
+                <span className="text-indigo-600 dark:text-indigo-400">{recommendation.app.name}</span>
+                <span className="text-slate-400 font-normal">→ submit ke</span>
+                <span className="text-slate-900 dark:text-white underline decoration-indigo-400 underline-offset-4">
+                  {recommendation.website.name}
+                </span>
+                {typeof recommendation.website.dr === 'number' && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                    DR {recommendation.website.dr}
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-600 dark:text-slate-400 max-w-2xl">
+                Berdasarkan submission terakhir, website ini belum di-submit untuk <strong>{recommendation.app.name}</strong> dan memiliki Domain Rating tertinggi.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
+              <button
+                onClick={() =>
+                  onNavigate('submissions', {
+                    appId: recommendation.app!.id,
+                    websiteId: recommendation.website!.id,
+                  })
+                }
+                data-testid="btn-create-recommended-submission"
+                className="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer"
+              >
+                <span>Buat Submission Ini</span>
+                <ArrowRight className="w-4 h-4 ml-1.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Work Queue */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-colors">
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -167,28 +305,52 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
             </div>
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">All caught up!</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1">
-              There are no pending submissions in the queue right now. You can create new submissions or add more target websites.
+              Tidak ada submission pending di antrean saat ini.
             </p>
-            <div className="mt-5 flex justify-center gap-3">
-              <button
-                onClick={() => onNavigate('apps')}
-                className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-750 cursor-pointer"
-              >
-                + Add App
-              </button>
-              <button
-                onClick={() => onNavigate('websites')}
-                className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-750 cursor-pointer"
-              >
-                + Add Website
-              </button>
-              <button
-                onClick={() => onNavigate('submissions')}
-                className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg cursor-pointer"
-              >
-                + Create Submission
-              </button>
-            </div>
+
+            {recommendation.status === 'ready' && recommendation.app && recommendation.website ? (
+              <div className="mt-5 p-4 max-w-lg mx-auto bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
+                <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mb-3">
+                  Langkah berikutnya: Submit <strong>{recommendation.app.name}</strong> ke{' '}
+                  <strong>{recommendation.website.name}</strong>{' '}
+                  {typeof recommendation.website.dr === 'number' && `(DR ${recommendation.website.dr})`}
+                </p>
+                <button
+                  onClick={() =>
+                    onNavigate('submissions', {
+                      appId: recommendation.app!.id,
+                      websiteId: recommendation.website!.id,
+                    })
+                  }
+                  data-testid="btn-empty-state-recommendation"
+                  className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-xs cursor-pointer transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                  Buat Submission Rekomendasi
+                </button>
+              </div>
+            ) : (
+              <div className="mt-5 flex justify-center gap-3">
+                <button
+                  onClick={() => onNavigate('apps')}
+                  className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-750 cursor-pointer"
+                >
+                  + Add App
+                </button>
+                <button
+                  onClick={() => onNavigate('websites')}
+                  className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-750 cursor-pointer"
+                >
+                  + Add Website
+                </button>
+                <button
+                  onClick={() => onNavigate('submissions')}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg cursor-pointer"
+                >
+                  + Create Submission
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">

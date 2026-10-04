@@ -52,6 +52,22 @@ export function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Prefill state for automated recommendation flow
+  const [prefillSubmission, setPrefillSubmission] = useState<{ appId: string; websiteId: string } | null>(null);
+
+  const handleNavigate = (tab: TabType, prefill?: { appId: string; websiteId: string }) => {
+    if (prefill) {
+      setPrefillSubmission(prefill);
+    }
+    setActiveTab(tab);
+    window.location.hash = tab;
+  };
+
+  const handleNavigateToTodo = () => {
+    setActiveTab('todo');
+    window.location.hash = 'todo';
+  };
+
   // Real-time data subscriptions
   useEffect(() => {
     let appsLoaded = false;
@@ -156,15 +172,22 @@ export function App() {
                 apps={apps}
                 websites={websites}
                 submissions={submissions}
-                onNavigate={(tab) => {
-                  setActiveTab(tab);
-                  window.location.hash = tab;
-                }}
+                onNavigate={handleNavigate}
               />
             )}
 
             {activeTab === 'submissions' && (
-              <SubmissionsView apps={apps} websites={websites} submissions={submissions} />
+              <SubmissionsView
+                key={prefillSubmission ? `prefill-${prefillSubmission.appId}-${prefillSubmission.websiteId}` : 'submissions-view'}
+                apps={apps}
+                websites={websites}
+                submissions={submissions}
+                initialAppId={prefillSubmission?.appId}
+                initialWebsiteId={prefillSubmission?.websiteId}
+                autoOpenForm={Boolean(prefillSubmission)}
+                returnToTodoOnSubmit={Boolean(prefillSubmission)}
+                onNavigateToTodo={handleNavigateToTodo}
+              />
             )}
 
             {activeTab === 'apps' && <AppsView apps={apps} submissions={submissions} />}

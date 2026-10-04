@@ -402,5 +402,64 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await page.reload();
     await expect(page.locator('html')).toHaveClass(/dark/);
   });
+
+  test('15. Next submission recommendation journey: autofill, target URL display, and auto-return to To Do', async ({ page }) => {
+    await page.goto('/');
+
+    // 1. Create an App
+    await page.getByTestId('nav-apps').click();
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('FitPulse Tracker');
+    await page.getByTestId('btn-submit-app').click();
+
+    // 2. Create Website A (DR 50) and Website B (DR 85)
+    await page.getByTestId('nav-websites').click();
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('Low DR Site');
+    await page.getByTestId('input-website-dr').fill('50');
+    await page.getByTestId('input-website-url').fill('https://lowdr.com');
+    await page.getByTestId('btn-submit-website').click();
+
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('High DR Authority Site');
+    await page.getByTestId('input-website-dr').fill('85');
+    await page.getByTestId('input-website-url').fill('https://highdr.com');
+    await page.getByTestId('btn-submit-website').click();
+
+    // 3. Return to To Do tab
+    await page.getByTestId('nav-todo').click();
+
+    // 4. Verify Next Recommended Submission card recommends High DR Authority Site (DR 85)
+    const recCard = page.getByTestId('next-recommended-card');
+    await expect(recCard).toBeVisible();
+    await expect(recCard).toContainText('FitPulse Tracker');
+    await expect(recCard).toContainText('High DR Authority Site');
+    await expect(recCard).toContainText('DR 85');
+
+    // 5. Click "Buat Submission Ini"
+    await page.getByTestId('btn-create-recommended-submission').click();
+
+    // 6. Verify we are now on Submissions tab, form is open and autofilled
+    await expect(page.getByTestId('submission-form-card')).toBeVisible();
+    await expect(page.getByTestId('input-submission-app')).toContainText('FitPulse Tracker');
+    await expect(page.getByTestId('input-submission-website')).toContainText('High DR Authority Site');
+
+    // 7. Verify Target Website URL is displayed below the dropdown
+    const websiteUrlLink = page.getByTestId('selected-website-url-link');
+    await expect(websiteUrlLink).toBeVisible();
+    await expect(websiteUrlLink).toHaveAttribute('href', 'https://highdr.com');
+
+    // 8. Submit the form
+    await page.getByTestId('btn-submit-submission').click();
+
+    // 9. Verify automatic return to To Do tab
+    await expect(page.getByRole('heading', { name: 'What To Do Now' })).toBeVisible();
+
+    // 10. Verify next recommendation now automatically updates to Low DR Site (DR 50)
+    await expect(recCard).toBeVisible();
+    await expect(recCard).toContainText('Low DR Site');
+    await expect(recCard).toContainText('DR 50');
+  });
 });
+
 
