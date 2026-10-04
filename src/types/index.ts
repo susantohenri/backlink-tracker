@@ -4,6 +4,7 @@ export interface AndroidApp {
   id: string;
   name: string;
   playStoreUrl: string;
+  landingPageUrl?: string;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -36,6 +37,7 @@ export type TabType = 'todo' | 'submissions' | 'apps' | 'websites';
 export interface AppFormData {
   name: string;
   playStoreUrl: string;
+  landingPageUrl?: string;
   notes: string;
 }
 

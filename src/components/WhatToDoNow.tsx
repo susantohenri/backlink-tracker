@@ -424,6 +424,16 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
                             Play Store URL
                           </a>
                         )}
+                        {app?.landingPageUrl && (
+                          <a
+                            href={app.landingPageUrl.startsWith('http') ? app.landingPageUrl : `https://${app.landingPageUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
+                          >
+                            Landing Page URL
+                          </a>
+                        )}
                         {sub.postUrl && (
                           <a
                             href={sub.postUrl.startsWith('http') ? sub.postUrl : `https://${sub.postUrl}`}

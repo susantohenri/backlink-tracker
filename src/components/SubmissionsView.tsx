@@ -3,7 +3,7 @@ import type { AndroidApp, Website, Submission, SubmissionStatus, SubmissionFormD
 import { StatusBadge } from './StatusBadge';
 import { SearchableSelect, type SearchableSelectOption } from './SearchableSelect';
 import { createSubmission, updateSubmission, deleteSubmission } from '../services/storage';
-import { Plus, Search, Filter, Trash2, Edit2, ExternalLink, AlertTriangle, X, Check, Link as LinkIcon } from 'lucide-react';
+import { Plus, Search, Filter, Trash2, Edit2, ExternalLink, AlertTriangle, X, Check, Link as LinkIcon, Copy } from 'lucide-react';
 
 interface SubmissionsViewProps {
   apps: AndroidApp[];
@@ -38,6 +38,44 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   const [formDate, setFormDate] = useState('');
   const [formPostUrl, setFormPostUrl] = useState('');
   const [formNotes, setFormNotes] = useState('');
+  const [copiedType, setCopiedType] = useState<string | null>(null);
+
+  const handleCopyUrl = async (url: string, type: string) => {
+    if (!url) return;
+    let copied = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+      }
+    } catch {
+      // fallback below
+    }
+
+    if (!copied) {
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        copied = document.execCommand('copy');
+        textArea.remove();
+      } catch (err) {
+        console.error('Failed to copy', err);
+      }
+    }
+
+    if (copied) {
+      setCopiedType(type);
+      setTimeout(() => {
+        setCopiedType((prev) => (prev === type ? null : prev));
+      }, 2000);
+    }
+  };
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,7 +97,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   const appOptions: SearchableSelectOption[] = apps.map((a) => ({
     value: a.id,
     label: a.name,
-    subLabel: a.playStoreUrl,
+    subLabel: a.playStoreUrl || a.landingPageUrl,
     description: a.notes,
   }));
 
@@ -288,6 +326,98 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                   disabled={apps.length === 0}
                   testId="input-submission-app"
                 />
+
+                {/* Display Play Store & Landing Page URLs with copy feature below the dropdown */}
+                {(() => {
+                  const selectedApp = appMap.get(selectedAppId);
+                  if (!selectedApp) return null;
+                  return (
+                    <div
+                      data-testid="selected-app-info"
+                      className="mt-2 p-2.5 bg-slate-50 dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs space-y-2"
+                    >
+                      {/* Play Store URL row */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 overflow-hidden min-w-0 flex-1">
+                          <span className="text-slate-500 dark:text-slate-400 font-medium shrink-0">Play Store:</span>
+                          {selectedApp.playStoreUrl ? (
+                            <a
+                              href={selectedApp.playStoreUrl.startsWith('http') ? selectedApp.playStoreUrl : `https://${selectedApp.playStoreUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              data-testid="selected-app-playstore-link"
+                              className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium hover:underline truncate"
+                              title={selectedApp.playStoreUrl}
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 mr-1 shrink-0" />
+                              <span className="truncate">{selectedApp.playStoreUrl}</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-400 italic">No URL configured</span>
+                          )}
+                        </div>
+                        {selectedApp.playStoreUrl && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyUrl(selectedApp.playStoreUrl, 'playstore')}
+                            data-testid="btn-copy-playstore-url"
+                            className="inline-flex items-center gap-1 p-1 px-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded cursor-pointer transition-colors shrink-0"
+                            title={copiedType === 'playstore' ? 'Copied!' : 'Copy Play Store URL'}
+                          >
+                            {copiedType === 'playstore' ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Copied</span>
+                              </>
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Landing Page URL row */}
+                      <div className="flex items-center justify-between gap-2 border-t border-slate-200/60 dark:border-slate-700/60 pt-1.5">
+                        <div className="flex items-center gap-1.5 overflow-hidden min-w-0 flex-1">
+                          <span className="text-slate-500 dark:text-slate-400 font-medium shrink-0">Landing Page:</span>
+                          {selectedApp.landingPageUrl ? (
+                            <a
+                              href={selectedApp.landingPageUrl.startsWith('http') ? selectedApp.landingPageUrl : `https://${selectedApp.landingPageUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              data-testid="selected-app-landing-link"
+                              className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium hover:underline truncate"
+                              title={selectedApp.landingPageUrl}
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 mr-1 shrink-0" />
+                              <span className="truncate">{selectedApp.landingPageUrl}</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-400 italic">No URL configured</span>
+                          )}
+                        </div>
+                        {selectedApp.landingPageUrl && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyUrl(selectedApp.landingPageUrl!, 'landing')}
+                            data-testid="btn-copy-landing-url"
+                            className="inline-flex items-center gap-1 p-1 px-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded cursor-pointer transition-colors shrink-0"
+                            title={copiedType === 'landing' ? 'Copied!' : 'Copy Landing Page URL'}
+                          >
+                            {copiedType === 'landing' ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Copied</span>
+                              </>
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Website Searchable Dropdown */}
@@ -304,37 +434,51 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                   testId="input-submission-website"
                 />
 
-                {/* Display Target Website URL below the dropdown */}
+                {/* Display Target Website URL and Note below the dropdown */}
                 {(() => {
                   const selectedWebsite = websiteMap.get(selectedWebsiteId);
                   if (!selectedWebsite) return null;
                   return (
                     <div
                       data-testid="selected-website-info"
-                      className="mt-2 p-2.5 bg-slate-50 dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs flex flex-wrap items-center justify-between gap-2"
+                      className="mt-2 p-2.5 bg-slate-50 dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs space-y-2"
                     >
-                      <div className="flex items-center gap-1.5 overflow-hidden">
-                        <span className="text-slate-500 dark:text-slate-400 font-medium shrink-0">Website URL:</span>
-                        {selectedWebsite.url ? (
-                          <a
-                            href={selectedWebsite.url.startsWith('http') ? selectedWebsite.url : `https://${selectedWebsite.url}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            data-testid="selected-website-url-link"
-                            className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold hover:underline truncate"
-                            title="Open target website to submit backlink"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5 mr-1 shrink-0" />
-                            <span className="truncate">{selectedWebsite.url}</span>
-                          </a>
-                        ) : (
-                          <span className="text-slate-400 italic">No URL configured</span>
+                      {/* Website URL row */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                          <span className="text-slate-500 dark:text-slate-400 font-medium shrink-0">Website URL:</span>
+                          {selectedWebsite.url ? (
+                            <a
+                              href={selectedWebsite.url.startsWith('http') ? selectedWebsite.url : `https://${selectedWebsite.url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              data-testid="selected-website-url-link"
+                              className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold hover:underline truncate"
+                              title="Open target website to submit backlink"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 mr-1 shrink-0" />
+                              <span className="truncate">{selectedWebsite.url}</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-400 italic">No URL configured</span>
+                          )}
+                        </div>
+                        {typeof selectedWebsite.dr === 'number' && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 text-[11px] border border-indigo-200 dark:border-indigo-800 shrink-0">
+                            DR {selectedWebsite.dr}
+                          </span>
                         )}
                       </div>
-                      {typeof selectedWebsite.dr === 'number' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 text-[11px] border border-indigo-200 dark:border-indigo-800 shrink-0">
-                          DR {selectedWebsite.dr}
-                        </span>
+
+                      {/* Website Note below Website URL */}
+                      {selectedWebsite.notes && (
+                        <div
+                          data-testid="selected-website-notes"
+                          className="pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300"
+                        >
+                          <span className="font-semibold text-slate-700 dark:text-slate-200">Website Note: </span>
+                          <span className="italic">{selectedWebsite.notes}</span>
+                        </div>
                       )}
                     </div>
                   );
@@ -560,17 +704,30 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                       {/* App Name resolved dynamically */}
                       <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white" data-testid={`sub-app-name-${sub.id}`}>
                         <div>{app ? app.name : <span className="text-rose-500 italic">Unknown App</span>}</div>
-                        {app?.playStoreUrl && (
-                          <a
-                            href={app.playStoreUrl.startsWith('http') ? app.playStoreUrl : `https://${app.playStoreUrl}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:underline mt-0.5"
-                          >
-                            <ExternalLink className="w-2.5 h-2.5 mr-1" />
-                            Play Store
-                          </a>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                          {app?.playStoreUrl && (
+                            <a
+                              href={app.playStoreUrl.startsWith('http') ? app.playStoreUrl : `https://${app.playStoreUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:underline"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5 mr-1" />
+                              Play Store
+                            </a>
+                          )}
+                          {app?.landingPageUrl && (
+                            <a
+                              href={app.landingPageUrl.startsWith('http') ? app.landingPageUrl : `https://${app.landingPageUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-xs text-indigo-500 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5 mr-1" />
+                              Landing Page
+                            </a>
+                          )}
+                        </div>
                       </td>
 
                       {/* Website Name resolved dynamically + Website Notes */}
@@ -593,16 +750,6 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                             <ExternalLink className="w-3 h-3 mr-1" />
                             {website.url}
                           </a>
-                        )}
-                        {/* Requirement: kolom website, tambahkan website.note */}
-                        {website?.notes && (
-                          <p
-                            className="text-[11px] text-slate-500 dark:text-slate-400 italic mt-1 max-w-xs line-clamp-2"
-                            title={website.notes}
-                            data-testid={`sub-website-notes-${sub.id}`}
-                          >
-                            {website.notes}
-                          </p>
                         )}
                       </td>
 

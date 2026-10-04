@@ -15,6 +15,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
   // Form states
   const [name, setName] = useState('');
   const [playStoreUrl, setPlayStoreUrl] = useState('');
+  const [landingPageUrl, setLandingPageUrl] = useState('');
   const [notes, setNotes] = useState('');
 
   // Search & Feedback
@@ -27,6 +28,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
   const resetForm = () => {
     setName('');
     setPlayStoreUrl('');
+    setLandingPageUrl('');
     setNotes('');
     setEditingId(null);
     setShowCreateForm(false);
@@ -36,6 +38,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
   const handleOpenCreate = () => {
     setName('');
     setPlayStoreUrl('');
+    setLandingPageUrl('');
     setNotes('');
     setEditingId(null);
     setShowCreateForm(true);
@@ -45,6 +48,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
   const handleOpenEdit = (app: AndroidApp) => {
     setName(app.name);
     setPlayStoreUrl(app.playStoreUrl || '');
+    setLandingPageUrl(app.landingPageUrl || '');
     setNotes(app.notes || '');
     setEditingId(app.id);
     setShowCreateForm(true);
@@ -66,6 +70,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
       const data: AppFormData = {
         name: name.trim(),
         playStoreUrl: playStoreUrl.trim(),
+        landingPageUrl: landingPageUrl.trim(),
         notes: notes.trim(),
       };
 
@@ -108,6 +113,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
     return (
       app.name.toLowerCase().includes(q) ||
       (app.playStoreUrl || '').toLowerCase().includes(q) ||
+      (app.landingPageUrl || '').toLowerCase().includes(q) ||
       (app.notes || '').toLowerCase().includes(q)
     );
   });
@@ -175,7 +181,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
           </div>
 
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   App Name <span className="text-rose-500">*</span>
@@ -201,6 +207,20 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
                   value={playStoreUrl}
                   onChange={(e) => setPlayStoreUrl(e.target.value)}
                   data-testid="input-app-url"
+                  className="w-full text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-2 px-3 focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Landing Page URL
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://example.com"
+                  value={landingPageUrl}
+                  onChange={(e) => setLandingPageUrl(e.target.value)}
+                  data-testid="input-app-landing-url"
                   className="w-full text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-2 px-3 focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -278,6 +298,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
                 <tr>
                   <th className="py-3 px-4">App Name</th>
                   <th className="py-3 px-4">Play Store URL</th>
+                  <th className="py-3 px-4">Landing Page URL</th>
                   <th className="py-3 px-4 text-center">Submissions</th>
                   <th className="py-3 px-4">Notes</th>
                   <th className="py-3 px-4 text-right">Actions</th>
@@ -306,6 +327,22 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
                           >
                             <ExternalLink className="w-3.5 h-3.5 mr-1" />
                             View on Play Store
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 italic">Not set</span>
+                        )}
+                      </td>
+
+                      <td className="py-3 px-4 text-xs" data-testid={`app-landing-url-${app.id}`}>
+                        {app.landingPageUrl ? (
+                          <a
+                            href={app.landingPageUrl.startsWith('http') ? app.landingPageUrl : `https://${app.landingPageUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                            Visit Landing Page
                           </a>
                         ) : (
                           <span className="text-slate-400 italic">Not set</span>

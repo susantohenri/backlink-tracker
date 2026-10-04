@@ -105,6 +105,7 @@ export const subscribeApps = (callback: (apps: AndroidApp[]) => void): (() => vo
           id: docSnap.id,
           name: data.name ?? '',
           playStoreUrl: data.playStoreUrl ?? '',
+          landingPageUrl: data.landingPageUrl ?? '',
           notes: data.notes ?? '',
           createdAt: formatTimestamp(data.createdAt),
           updatedAt: formatTimestamp(data.updatedAt),
@@ -130,6 +131,7 @@ export const createApp = async (formData: AppFormData): Promise<string> => {
       id: 'app_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
       name: trimmedName,
       playStoreUrl: formData.playStoreUrl.trim(),
+      landingPageUrl: (formData.landingPageUrl || '').trim(),
       notes: formData.notes.trim(),
       createdAt: now,
       updatedAt: now,
@@ -143,6 +145,7 @@ export const createApp = async (formData: AppFormData): Promise<string> => {
   const docRef = await addDoc(collection(db, 'androidApps'), {
     name: trimmedName,
     playStoreUrl: formData.playStoreUrl.trim(),
+    landingPageUrl: (formData.landingPageUrl || '').trim(),
     notes: formData.notes.trim(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -163,6 +166,7 @@ export const updateApp = async (id: string, formData: Partial<AppFormData>): Pro
       ...mockApps[idx],
       name: formData.name !== undefined ? formData.name.trim() : mockApps[idx].name,
       playStoreUrl: formData.playStoreUrl !== undefined ? formData.playStoreUrl.trim() : mockApps[idx].playStoreUrl,
+      landingPageUrl: formData.landingPageUrl !== undefined ? formData.landingPageUrl.trim() : mockApps[idx].landingPageUrl,
       notes: formData.notes !== undefined ? formData.notes.trim() : mockApps[idx].notes,
       updatedAt: new Date().toISOString(),
     };
@@ -175,6 +179,7 @@ export const updateApp = async (id: string, formData: Partial<AppFormData>): Pro
   };
   if (formData.name !== undefined) updates.name = formData.name.trim();
   if (formData.playStoreUrl !== undefined) updates.playStoreUrl = formData.playStoreUrl.trim();
+  if (formData.landingPageUrl !== undefined) updates.landingPageUrl = formData.landingPageUrl.trim();
   if (formData.notes !== undefined) updates.notes = formData.notes.trim();
 
   await updateDoc(doc(db, 'androidApps', id), updates);

@@ -496,6 +496,97 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await expect(skippedMetric).toBeVisible();
     await expect(skippedMetric).toHaveText('1');
   });
+
+  test('17. Website notes displayed in submission form under website URL and not in table', async ({ page }) => {
+    await page.goto('/');
+
+    // 1. Create an App
+    await page.getByTestId('nav-apps').click();
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Notes Test App');
+    await page.getByTestId('btn-submit-app').click();
+
+    // 2. Create a Website with notes
+    await page.getByTestId('nav-websites').click();
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('Notes Target Site');
+    await page.getByTestId('input-website-url').fill('https://notestarget.example.com');
+    await page.getByTestId('input-website-notes').fill('Requires reciprocal link and manual admin review');
+    await page.getByTestId('btn-submit-website').click();
+
+    // 3. Open Submissions form
+    await page.getByTestId('nav-submissions').click();
+    await page.getByTestId('btn-add-submission').click();
+
+    // Check that website note appears in form under website url
+    const notesInForm = page.getByTestId('selected-website-notes');
+    await expect(notesInForm).toBeVisible();
+    await expect(notesInForm).toContainText('Requires reciprocal link and manual admin review');
+
+    // Submit the form
+    await page.getByTestId('btn-submit-submission').click();
+
+    // 4. In the submissions table, verify website name is shown but notes are not in the table
+    const table = page.getByTestId('submissions-table');
+    await expect(table).toContainText('Notes Target Site');
+    await expect(table).not.toContainText('Requires reciprocal link and manual admin review');
+  });
+
+  test('18. Android App landing page URL creation, display, and copy buttons in submission form', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.goto('/');
+
+    // 1. Create an Android App with both Play Store URL and Landing Page URL
+    await page.getByTestId('nav-apps').click();
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Super Productivity App');
+    await page.getByTestId('input-app-url').fill('https://play.google.com/store/apps/details?id=com.super.app');
+    await page.getByTestId('input-app-landing-url').fill('https://superproductivity.com');
+    await page.getByTestId('btn-submit-app').click();
+
+    // Verify success and that landing page is shown in Apps table
+    await expect(page.getByTestId('app-success-alert')).toBeVisible();
+    const appsTable = page.getByTestId('apps-table');
+    await expect(appsTable).toContainText('Super Productivity App');
+    await expect(appsTable).toContainText('Visit Landing Page');
+
+    // 2. Create a target Website
+    await page.getByTestId('nav-websites').click();
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('App Directory');
+    await page.getByTestId('input-website-url').fill('https://appdirectory.io');
+    await page.getByTestId('btn-submit-website').click();
+
+    // 3. Open Submission Form
+    await page.getByTestId('nav-submissions').click();
+    await page.getByTestId('btn-add-submission').click();
+    await expect(page.getByTestId('submission-form-card')).toBeVisible();
+
+    // Verify selected-app-info container is displayed below the app dropdown
+    const appInfo = page.getByTestId('selected-app-info');
+    await expect(appInfo).toBeVisible();
+
+    // Verify Play Store URL link and Landing Page URL link are displayed
+    const playStoreLink = page.getByTestId('selected-app-playstore-link');
+    await expect(playStoreLink).toBeVisible();
+    await expect(playStoreLink).toContainText('https://play.google.com/store/apps/details?id=com.super.app');
+
+    const landingLink = page.getByTestId('selected-app-landing-link');
+    await expect(landingLink).toBeVisible();
+    await expect(landingLink).toContainText('https://superproductivity.com');
+
+    // Verify Copy Play Store button
+    const copyPlayStoreBtn = page.getByTestId('btn-copy-playstore-url');
+    await expect(copyPlayStoreBtn).toBeVisible();
+    await copyPlayStoreBtn.click();
+    await expect(copyPlayStoreBtn).toContainText('Copied');
+
+    // Verify Copy Landing Page button
+    const copyLandingBtn = page.getByTestId('btn-copy-landing-url');
+    await expect(copyLandingBtn).toBeVisible();
+    await copyLandingBtn.click();
+    await expect(copyLandingBtn).toContainText('Copied');
+  });
 });
 
 
