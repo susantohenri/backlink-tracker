@@ -29,7 +29,9 @@ function getAppRecommendations(
   websites: Website[],
   submissions: Submission[]
 ): AppRecommendation[] {
-  if (apps.length === 0 || websites.length === 0) {
+  // Requirement: app yg belum published, jgn muncul di section rekomendasi di halaman todo
+  const publishedApps = apps.filter((app) => (app.status ?? 'published') === 'published');
+  if (publishedApps.length === 0 || websites.length === 0) {
     return [];
   }
 
@@ -53,7 +55,7 @@ function getAppRecommendations(
   }
 
   // 3. Cari website unsubmitted dengan DR tertinggi untuk masing-masing app
-  const results: AppRecommendation[] = apps.map((app) => {
+  const results: AppRecommendation[] = publishedApps.map((app) => {
     const submittedIds = appSubmissionsMap.get(app.id) || new Set<string>();
     const unsubmitted = websites.filter((w) => !submittedIds.has(w.id));
 

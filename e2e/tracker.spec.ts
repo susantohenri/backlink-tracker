@@ -685,6 +685,102 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await copyVideoBtn.click();
     await expect(copyVideoBtn).toContainText('Copied');
   });
+
+  test('21. App status (development/review/published): non-published apps excluded from Todo recommendations', async ({ page }) => {
+    await page.goto('/');
+
+    // 1. Create a Development App
+    await page.getByTestId('nav-apps').click();
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Dev Status App');
+    await page.getByTestId('input-app-status').selectOption('development');
+    await page.getByTestId('btn-submit-app').click();
+    await expect(page.getByTestId('app-success-alert')).toBeVisible();
+
+    // 2. Create a Review App
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Review Status App');
+    await page.getByTestId('input-app-status').selectOption('review');
+    await page.getByTestId('btn-submit-app').click();
+    await expect(page.getByTestId('app-success-alert')).toBeVisible();
+
+    // 3. Create a Published App
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Published Status App');
+    await page.getByTestId('input-app-status').selectOption('published');
+    await page.getByTestId('btn-submit-app').click();
+    await expect(page.getByTestId('app-success-alert')).toBeVisible();
+
+    // Verify status badges in the Apps table
+    const appsTable = page.getByTestId('apps-table');
+    await expect(appsTable).toContainText('Dev Status App');
+    await expect(appsTable).toContainText('Development');
+    await expect(appsTable).toContainText('Review Status App');
+    await expect(appsTable).toContainText('Review');
+    await expect(appsTable).toContainText('Published Status App');
+    await expect(appsTable).toContainText('Published');
+
+    // Test status filter in Apps view
+    await page.getByTestId('filter-app-status').selectOption('development');
+    await expect(appsTable).toContainText('Dev Status App');
+    await expect(appsTable).not.toContainText('Review Status App');
+    await expect(appsTable).not.toContainText('Published Status App');
+
+    await page.getByTestId('filter-app-status').selectOption('review');
+    await expect(appsTable).toContainText('Review Status App');
+    await expect(appsTable).not.toContainText('Dev Status App');
+    await expect(appsTable).not.toContainText('Published Status App');
+
+    await page.getByTestId('filter-app-status').selectOption('ALL');
+    await expect(appsTable).toContainText('Dev Status App');
+    await expect(appsTable).toContainText('Review Status App');
+    await expect(appsTable).toContainText('Published Status App');
+
+    // 4. Create a target Website with DR 85
+    await page.getByTestId('nav-websites').click();
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('High DR Directory');
+    await page.getByTestId('input-website-dr').fill('85');
+    await page.getByTestId('input-website-url').fill('https://highdr.example.com');
+    await page.getByTestId('btn-submit-website').click();
+
+    // 5. Navigate to To Do tab
+    await page.getByTestId('nav-todo').click();
+    const recSection = page.getByTestId('next-recommended-card');
+    await expect(recSection).toBeVisible();
+
+    // The Published app MUST appear in the recommendations table
+    await expect(recSection).toContainText('Published Status App');
+    await expect(recSection).toContainText('High DR Directory');
+
+    // Apps with status 'development' or 'review' must NOT appear in the recommendations
+    await expect(recSection).not.toContainText('Dev Status App');
+    await expect(recSection).not.toContainText('Review Status App');
+
+    // 6. Update Dev Status App to 'published'
+    await page.getByTestId('nav-apps').click();
+    const devRow = page.locator('tr', { hasText: 'Dev Status App' });
+    await devRow.getByTitle('Edit App').click();
+    await page.getByTestId('input-app-status').selectOption('published');
+    await page.getByTestId('btn-submit-app').click();
+    await expect(page.getByTestId('app-success-alert')).toBeVisible();
+
+    // 7. Verify in To Do tab that 'Dev Status App' now appears in recommendations
+    await page.getByTestId('nav-todo').click();
+    await expect(recSection).toContainText('Published Status App');
+    await expect(recSection).toContainText('Dev Status App');
+    // Review app still remains excluded
+    await expect(recSection).not.toContainText('Review Status App');
+
+    // 8. In Submissions form, check app status badge
+    await page.getByTestId('nav-submissions').click();
+    await page.getByTestId('btn-add-submission').click();
+    await page.getByTestId('input-submission-app').click();
+    await page.getByRole('button', { name: 'Review Status App' }).click();
+    const appStatusBadge = page.getByTestId('selected-app-status-badge');
+    await expect(appStatusBadge).toBeVisible();
+    await expect(appStatusBadge).toContainText('Review');
+  });
 });
 
 

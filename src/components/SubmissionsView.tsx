@@ -336,6 +336,27 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                       data-testid="selected-app-info"
                       className="mt-2 p-2.5 bg-slate-50 dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs space-y-2"
                     >
+                      {/* App Status row */}
+                      <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-200/60 dark:border-slate-700/60">
+                        <span className="text-slate-500 dark:text-slate-400 font-medium">Status:</span>
+                        <span
+                          data-testid="selected-app-status-badge"
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            (selectedApp.status || 'published') === 'published'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                              : (selectedApp.status || 'published') === 'review'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'
+                              : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                          }`}
+                        >
+                          {(selectedApp.status || 'published') === 'development'
+                            ? 'Development'
+                            : (selectedApp.status || 'published') === 'review'
+                            ? 'Review'
+                            : 'Published'}
+                        </span>
+                      </div>
+
                       {/* Play Store URL row */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 overflow-hidden min-w-0 flex-1">

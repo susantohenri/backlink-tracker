@@ -1,8 +1,10 @@
 export type SubmissionStatus = 'TODO' | 'WAITING' | 'APPROVED' | 'REJECTED' | 'SKIPPED';
+export type AppStatus = 'development' | 'review' | 'published';
 
 export interface AndroidApp {
   id: string;
   name: string;
+  status?: AppStatus;
   playStoreUrl: string;
   landingPageUrl?: string;
   videoUrl?: string;
@@ -37,6 +39,7 @@ export type TabType = 'todo' | 'submissions' | 'apps' | 'websites';
 
 export interface AppFormData {
   name: string;
+  status?: AppStatus;
   playStoreUrl: string;
   landingPageUrl?: string;
   videoUrl?: string;

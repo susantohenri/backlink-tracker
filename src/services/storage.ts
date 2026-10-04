@@ -13,7 +13,7 @@ import {
   type QuerySnapshot
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import type { AndroidApp, Website, Submission, AppFormData, WebsiteFormData, SubmissionFormData } from '../types';
+import type { AndroidApp, AppStatus, Website, Submission, AppFormData, WebsiteFormData, SubmissionFormData } from '../types';
 
 declare global {
   interface Window {
@@ -104,6 +104,7 @@ export const subscribeApps = (callback: (apps: AndroidApp[]) => void): (() => vo
         return {
           id: docSnap.id,
           name: data.name ?? '',
+          status: (data.status as AppStatus) || 'published',
           playStoreUrl: data.playStoreUrl ?? '',
           landingPageUrl: data.landingPageUrl ?? '',
           videoUrl: data.videoUrl ?? '',
@@ -131,6 +132,7 @@ export const createApp = async (formData: AppFormData): Promise<string> => {
     const newApp: AndroidApp = {
       id: 'app_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
       name: trimmedName,
+      status: formData.status || 'published',
       playStoreUrl: formData.playStoreUrl.trim(),
       landingPageUrl: (formData.landingPageUrl || '').trim(),
       videoUrl: (formData.videoUrl || '').trim(),
@@ -146,6 +148,7 @@ export const createApp = async (formData: AppFormData): Promise<string> => {
   const now = new Date().toISOString();
   const docRef = await addDoc(collection(db, 'androidApps'), {
     name: trimmedName,
+    status: formData.status || 'published',
     playStoreUrl: formData.playStoreUrl.trim(),
     landingPageUrl: (formData.landingPageUrl || '').trim(),
     videoUrl: (formData.videoUrl || '').trim(),
@@ -168,6 +171,7 @@ export const updateApp = async (id: string, formData: Partial<AppFormData>): Pro
     mockApps[idx] = {
       ...mockApps[idx],
       name: formData.name !== undefined ? formData.name.trim() : mockApps[idx].name,
+      status: formData.status !== undefined ? formData.status : (mockApps[idx].status || 'published'),
       playStoreUrl: formData.playStoreUrl !== undefined ? formData.playStoreUrl.trim() : mockApps[idx].playStoreUrl,
       landingPageUrl: formData.landingPageUrl !== undefined ? formData.landingPageUrl.trim() : mockApps[idx].landingPageUrl,
       videoUrl: formData.videoUrl !== undefined ? formData.videoUrl.trim() : mockApps[idx].videoUrl,
@@ -182,6 +186,7 @@ export const updateApp = async (id: string, formData: Partial<AppFormData>): Pro
     updatedAt: serverTimestamp(),
   };
   if (formData.name !== undefined) updates.name = formData.name.trim();
+  if (formData.status !== undefined) updates.status = formData.status;
   if (formData.playStoreUrl !== undefined) updates.playStoreUrl = formData.playStoreUrl.trim();
   if (formData.landingPageUrl !== undefined) updates.landingPageUrl = formData.landingPageUrl.trim();
   if (formData.videoUrl !== undefined) updates.videoUrl = formData.videoUrl.trim();

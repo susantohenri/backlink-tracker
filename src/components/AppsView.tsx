@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { AndroidApp, Submission, AppFormData } from '../types';
+import type { AndroidApp, AppStatus, Submission, AppFormData } from '../types';
 import { createApp, updateApp, deleteApp } from '../services/storage';
 import { Plus, Search, Trash2, Edit2, ExternalLink, AlertTriangle, X, Check, Smartphone } from 'lucide-react';
 
@@ -14,6 +14,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
 
   // Form states
   const [name, setName] = useState('');
+  const [status, setStatus] = useState<AppStatus>('published');
   const [playStoreUrl, setPlayStoreUrl] = useState('');
   const [landingPageUrl, setLandingPageUrl] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
@@ -21,6 +22,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
 
   // Search & Feedback
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
 
   const resetForm = () => {
     setName('');
+    setStatus('published');
     setPlayStoreUrl('');
     setLandingPageUrl('');
     setVideoUrl('');
@@ -39,6 +42,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
 
   const handleOpenCreate = () => {
     setName('');
+    setStatus('published');
     setPlayStoreUrl('');
     setLandingPageUrl('');
     setVideoUrl('');
@@ -50,6 +54,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
 
   const handleOpenEdit = (app: AndroidApp) => {
     setName(app.name);
+    setStatus(app.status || 'published');
     setPlayStoreUrl(app.playStoreUrl || '');
     setLandingPageUrl(app.landingPageUrl || '');
     setVideoUrl(app.videoUrl || '');
@@ -73,6 +78,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
       setSubmitting(true);
       const data: AppFormData = {
         name: name.trim(),
+        status,
         playStoreUrl: playStoreUrl.trim(),
         landingPageUrl: landingPageUrl.trim(),
         videoUrl: videoUrl.trim(),
@@ -111,12 +117,16 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
     submissionCountMap.set(s.appId, (submissionCountMap.get(s.appId) || 0) + 1);
   });
 
-  // Filtered apps based on search query
+  // Filtered apps based on search query and status filter
   const filteredApps = apps.filter((app) => {
     const q = searchQuery.toLowerCase().trim();
+    const appStatus = app.status || 'published';
+    const matchesStatus = statusFilter === 'ALL' || appStatus === statusFilter;
+    if (!matchesStatus) return false;
     if (!q) return true;
     return (
       app.name.toLowerCase().includes(q) ||
+      appStatus.toLowerCase().includes(q) ||
       (app.playStoreUrl || '').toLowerCase().includes(q) ||
       (app.landingPageUrl || '').toLowerCase().includes(q) ||
       (app.videoUrl || '').toLowerCase().includes(q) ||
@@ -187,8 +197,8 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
           </div>
 
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   App Name <span className="text-rose-500">*</span>
                 </label>
@@ -203,6 +213,24 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Status
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as AppStatus)}
+                  data-testid="input-app-status"
+                  className="w-full text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white py-2 px-3 focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="published">Published</option>
+                  <option value="review">Review</option>
+                  <option value="development">Development</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Play Store URL
@@ -281,20 +309,35 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between transition-colors">
-        <div className="relative w-full max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search apps by name, URL, or notes..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            data-testid="input-search-apps"
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500"
-          />
+      {/* Search Bar & Status Filter */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 transition-colors">
+        <div className="flex flex-1 items-center gap-3 max-w-xl">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search apps by name, status, URL, or notes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              data-testid="input-search-apps"
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            data-testid="filter-app-status"
+            className="text-xs py-2 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 shrink-0"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="published">Published</option>
+            <option value="review">Review</option>
+            <option value="development">Development</option>
+          </select>
         </div>
-        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+
+        <span className="text-xs text-slate-500 dark:text-slate-400 font-medium self-end sm:self-center">
           Total: {apps.length} {apps.length === 1 ? 'App' : 'Apps'}
         </span>
       </div>
@@ -317,6 +360,7 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">App Name</th>
+                  <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Play Store URL</th>
                   <th className="py-3 px-4">Landing Page URL</th>
                   <th className="py-3 px-4">Video URL</th>
@@ -336,6 +380,24 @@ export const AppsView: React.FC<AppsViewProps> = ({ apps, submissions }) => {
                     >
                       <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white" data-testid={`app-name-${app.id}`}>
                         {app.name}
+                      </td>
+
+                      <td className="py-3 px-4 text-xs" data-testid={`app-status-${app.id}`}>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                            (app.status || 'published') === 'published'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                              : (app.status || 'published') === 'review'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'
+                              : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                          }`}
+                        >
+                          {(app.status || 'published') === 'development'
+                            ? 'Development'
+                            : (app.status || 'published') === 'review'
+                            ? 'Review'
+                            : 'Published'}
+                        </span>
                       </td>
 
                       <td className="py-3 px-4 text-xs">
