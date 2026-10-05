@@ -505,8 +505,8 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                       className="mt-2 p-2.5 bg-slate-50 dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs space-y-2"
                     >
                       {/* Website URL row */}
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 overflow-hidden">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 overflow-hidden min-w-0 flex-1">
                           <span className="text-slate-500 dark:text-slate-400 font-medium shrink-0">Website URL:</span>
                           {selectedWebsite.url ? (
                             <a
@@ -524,11 +524,32 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                             <span className="text-slate-400 italic">No URL configured</span>
                           )}
                         </div>
-                        {typeof selectedWebsite.dr === 'number' && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 text-[11px] border border-indigo-200 dark:border-indigo-800 shrink-0">
-                            DR {selectedWebsite.dr}
-                          </span>
-                        )}
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {selectedWebsite.url && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyUrl(selectedWebsite.url, 'website')}
+                              data-testid="btn-copy-website-url"
+                              className="inline-flex items-center gap-1 p-1 px-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded cursor-pointer transition-colors shrink-0"
+                              title={copiedType === 'website' ? 'Copied!' : 'Copy Website URL'}
+                            >
+                              {copiedType === 'website' ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Copied</span>
+                                </>
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                          {typeof selectedWebsite.dr === 'number' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 text-[11px] border border-indigo-200 dark:border-indigo-800 shrink-0">
+                              DR {selectedWebsite.dr}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Website Note below Website URL */}

@@ -781,6 +781,53 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await expect(appStatusBadge).toBeVisible();
     await expect(appStatusBadge).toContainText('Review');
   });
+
+  test('22. Submission form: target website copy URL button and target=_blank on all dropdown URLs', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.goto('/');
+
+    // 1. Create an App with playStoreUrl, landingPageUrl, and videoUrl
+    await page.getByTestId('nav-apps').click();
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Full Links App');
+    await page.getByTestId('input-app-url').fill('https://play.google.com/store/apps/details?id=com.full.app');
+    await page.getByTestId('input-app-landing-url').fill('https://fulllinks.io');
+    await page.getByTestId('input-app-video-url').fill('https://youtube.com/watch?v=sample123');
+    await page.getByTestId('btn-submit-app').click();
+    await expect(page.getByTestId('app-success-alert')).toBeVisible();
+
+    // 2. Create a Website with url
+    await page.getByTestId('nav-websites').click();
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('Cool Backlink Directory');
+    await page.getByTestId('input-website-url').fill('https://coolbacklinks.org/submit');
+    await page.getByTestId('btn-submit-website').click();
+    await expect(page.getByTestId('website-success-alert')).toBeVisible();
+
+    // 3. Open Submissions form
+    await page.getByTestId('nav-submissions').click();
+    await page.getByTestId('btn-add-submission').click();
+    await expect(page.getByTestId('submission-form-card')).toBeVisible();
+
+    // Verify all links have target="_blank"
+    const playStoreLink = page.getByTestId('selected-app-playstore-link');
+    await expect(playStoreLink).toHaveAttribute('target', '_blank');
+
+    const landingLink = page.getByTestId('selected-app-landing-link');
+    await expect(landingLink).toHaveAttribute('target', '_blank');
+
+    const videoLink = page.getByTestId('selected-app-video-link');
+    await expect(videoLink).toHaveAttribute('target', '_blank');
+
+    const websiteLink = page.getByTestId('selected-website-url-link');
+    await expect(websiteLink).toHaveAttribute('target', '_blank');
+
+    // Verify Copy button for target Website URL
+    const copyWebsiteBtn = page.getByTestId('btn-copy-website-url');
+    await expect(copyWebsiteBtn).toBeVisible();
+    await copyWebsiteBtn.click();
+    await expect(copyWebsiteBtn).toContainText('Copied');
+  });
 });
 
 
