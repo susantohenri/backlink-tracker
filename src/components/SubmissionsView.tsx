@@ -760,16 +760,15 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm" data-testid="submissions-table">
+            <table className="w-full min-w-[1000px] table-fixed text-left text-sm" data-testid="submissions-table">
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Android App</th>
-                  <th className="py-3 px-4">Website</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Post URL</th>
-                  <th className="py-3 px-4">Submission Date</th>
-                  <th className="py-3 px-4">Notes</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4 w-[20%]">Android App</th>
+                  <th className="py-3 px-4 w-[20%]">Website</th>
+                  <th className="py-3 px-4 w-[14%]">Status</th>
+                  <th className="py-3 px-4 w-[16%]">Post URL</th>
+                  <th className="py-3 px-4 w-[20%]">Notes</th>
+                  <th className="py-3 px-4 w-[10%] text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-800 dark:text-slate-200">
@@ -826,9 +825,9 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                       {/* Website Name resolved dynamically + Website Notes */}
                       <td className="py-3 px-4" data-testid={`sub-website-name-${sub.id}`}>
                         <div className="font-medium text-slate-900 dark:text-white flex items-center gap-1.5">
-                          <span>{website ? website.name : 'Unknown Website'}</span>
+                          <span className="min-w-0 truncate">{website ? website.name : 'Unknown Website'}</span>
                           {typeof website?.dr === 'number' && (
-                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                            <span className="shrink-0 inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                               DR {website.dr}
                             </span>
                           )}
@@ -838,10 +837,10 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                             href={website.url.startsWith('http') ? website.url : `https://${website.url}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline mt-0.5"
+                            className="flex items-center max-w-full text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline mt-0.5"
                           >
-                            <ExternalLink className="w-3 h-3 mr-1" />
-                            {website.url}
+                            <ExternalLink className="w-3 h-3 mr-1 shrink-0" />
+                            <span className="min-w-0 truncate" title={website.url}>{website.url}</span>
                           </a>
                         )}
                       </td>
@@ -858,20 +857,15 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                             href={sub.postUrl.startsWith('http') ? sub.postUrl : `https://${sub.postUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:underline font-medium max-w-xs truncate"
+                            className="flex items-center max-w-full text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:underline font-medium"
                             title={sub.postUrl}
                           >
                             <LinkIcon className="w-3 h-3 mr-1 shrink-0" />
-                            <span className="truncate max-w-[180px]">{sub.postUrl}</span>
+                            <span className="min-w-0 truncate">{sub.postUrl}</span>
                           </a>
                         ) : (
                           <span className="text-slate-400 italic">-</span>
                         )}
-                      </td>
-
-                      {/* Submission Date: only shown if set */}
-                      <td className="py-3 px-4 text-slate-600 dark:text-slate-400 text-xs">
-                        {sub.submissionDate || <span className="text-slate-400 italic">-</span>}
                       </td>
 
                       <td className="py-3 px-4 text-xs text-slate-600 dark:text-slate-400 max-w-xs truncate" title={sub.notes}>
