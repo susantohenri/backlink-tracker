@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import type { AndroidApp, Website, Submission, SubmissionStatus, SubmissionFormData } from '../types';
+import type { AndroidApp, Website, Submission, SubmissionStatus, SubmissionFormData, AutomationResult } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { SearchableSelect, type SearchableSelectOption } from './SearchableSelect';
 import { createSubmission, updateSubmission, deleteSubmission } from '../services/storage';
-import { Plus, Search, Filter, Trash2, Edit2, ExternalLink, AlertTriangle, X, Check, Link as LinkIcon, Copy } from 'lucide-react';
+import { isWebsiteAutomationSupported, runSubmissionAutomation } from '../services/automation';
+import { Plus, Search, Filter, Trash2, Edit2, ExternalLink, AlertTriangle, X, Check, Link as LinkIcon, Copy, Play, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface SubmissionsViewProps {
   apps: AndroidApp[];
@@ -89,6 +90,8 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [isAutomating, setIsAutomating] = useState(false);
+  const [automationResult, setAutomationResult] = useState<AutomationResult | null>(null);
 
   const appMap = new Map<string, AndroidApp>(apps.map((a) => [a.id, a]));
   const websiteMap = new Map<string, Website>(websites.map((w) => [w.id, w]));
@@ -119,6 +122,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
     setEditingId(null);
     setShowCreateForm(false);
     setErrorMsg(null);
+    setAutomationResult(null);
   };
 
   const handleOpenCreate = () => {
@@ -131,6 +135,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
     setEditingId(null);
     setShowCreateForm(true);
     setErrorMsg(null);
+    setAutomationResult(null);
   };
 
   const handleOpenEdit = (sub: Submission) => {
@@ -143,6 +148,84 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
     setEditingId(sub.id);
     setShowCreateForm(true);
     setErrorMsg(null);
+    setAutomationResult(null);
+  };
+
+  const handleRunAutomation = async () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setAutomationResult(null);
+
+    if (!selectedAppId) {
+      setErrorMsg('Please select an Android App before running automation.');
+      return;
+    }
+    if (!selectedWebsiteId) {
+      setErrorMsg('Please select a Website before running automation.');
+      return;
+    }
+
+    const app = appMap.get(selectedAppId);
+    const website = websiteMap.get(selectedWebsiteId);
+    if (!app || !website) {
+      setErrorMsg('Selected app or website could not be found.');
+      return;
+    }
+
+    try {
+      setIsAutomating(true);
+      const existingSub = editingId ? submissions.find((s) => s.id === editingId) : undefined;
+      const result = await runSubmissionAutomation({
+        app,
+        website,
+        submission: existingSub,
+      });
+
+      setAutomationResult(result);
+
+      if (result.status === 'SUCCESS') {
+        const today = new Date().toISOString().split('T')[0];
+        const resolvedDate = formDate || today;
+        const resolvedPostUrl = (result.postUrl || formPostUrl || '').trim();
+        const autoNotes = formNotes.trim()
+          ? `${formNotes.trim()} (Automated via Active Search Results)`
+          : 'Automated via Active Search Results';
+
+        setFormStatus('APPROVED');
+        if (result.postUrl) {
+          setFormPostUrl(result.postUrl);
+        }
+        if (!formDate) {
+          setFormDate(today);
+        }
+        setFormNotes(autoNotes);
+
+        const dataToSave: SubmissionFormData = {
+          appId: selectedAppId,
+          websiteId: selectedWebsiteId,
+          status: 'APPROVED',
+          submissionDate: resolvedDate,
+          postUrl: resolvedPostUrl,
+          notes: autoNotes,
+        };
+
+        if (editingId) {
+          await updateSubmission(editingId, dataToSave, submissions);
+          setSuccessMsg('Active Search Results submission completed and record updated.');
+        } else {
+          const newId = await createSubmission(dataToSave, submissions);
+          setEditingId(newId);
+          setSuccessMsg('Active Search Results submission completed and record saved.');
+        }
+      }
+    } catch (err) {
+      setAutomationResult({
+        status: 'FAILED',
+        message: err instanceof Error ? err.message : 'An error occurred during automation.',
+      });
+    } finally {
+      setIsAutomating(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -310,6 +393,53 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
               <X className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Automation Result Feedback */}
+          {automationResult && (
+            <div
+              data-testid="automation-result-alert"
+              className={`p-3.5 mb-4 rounded-lg text-xs flex items-start justify-between border ${
+                automationResult.status === 'SUCCESS'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300'
+                  : automationResult.status === 'MANUAL_REQUIRED'
+                  ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300'
+                  : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300'
+              }`}
+            >
+              <div className="flex items-start gap-2 min-w-0">
+                {automationResult.status === 'SUCCESS' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                ) : automationResult.status === 'MANUAL_REQUIRED' ? (
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <span className="font-semibold uppercase tracking-wider text-[11px] block">
+                    {automationResult.status === 'SUCCESS'
+                      ? 'Automation Succeeded'
+                      : automationResult.status === 'MANUAL_REQUIRED'
+                      ? 'Manual Action Required'
+                      : 'Automation Failed'}
+                  </span>
+                  <p className="mt-0.5 leading-relaxed">{automationResult.message}</p>
+                  {automationResult.postUrl && (
+                    <p className="mt-1 text-slate-600 dark:text-slate-400 font-mono text-[11px] truncate">
+                      Post URL: {automationResult.postUrl}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAutomationResult(null)}
+                className="p-1 hover:opacity-75 transition-opacity ml-2 shrink-0 cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleSave} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -672,22 +802,51 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting || apps.length === 0 || websites.length === 0}
-                data-testid="btn-submit-submission"
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                {submitting ? 'Saving...' : editingId ? 'Update Submission' : 'Create Submission'}
-              </button>
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              {/* Automation button: ONLY visible if target website supports automation */}
+              <div>
+                {isWebsiteAutomationSupported(websiteMap.get(selectedWebsiteId)) && (
+                  <button
+                    type="button"
+                    onClick={handleRunAutomation}
+                    disabled={isAutomating || submitting || !selectedAppId || !selectedWebsiteId}
+                    data-testid="btn-run-automation"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-xs cursor-pointer disabled:opacity-50 transition-colors w-full sm:w-auto justify-center"
+                    title="Run Active Search Results submission automation"
+                  >
+                    {isAutomating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Running...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 fill-current" />
+                        <span>Run Automation</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Standard Cancel & Save buttons */}
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || isAutomating || apps.length === 0 || websites.length === 0}
+                  data-testid="btn-submit-submission"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {submitting ? 'Saving...' : editingId ? 'Update Submission' : 'Create Submission'}
+                </button>
+              </div>
             </div>
           </form>
         </div>

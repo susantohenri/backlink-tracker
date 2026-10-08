@@ -63,3 +63,11 @@ export interface SubmissionFormData {
   postUrl?: string;
   notes: string;
 }
+
+export type AutomationStatus = 'SUCCESS' | 'FAILED' | 'MANUAL_REQUIRED';
+
+export interface AutomationResult {
+  status: AutomationStatus;
+  message: string;
+  postUrl?: string;
+}
