@@ -108,6 +108,7 @@ export const subscribeApps = (callback: (apps: AndroidApp[]) => void): (() => vo
           playStoreUrl: data.playStoreUrl ?? '',
           landingPageUrl: data.landingPageUrl ?? '',
           videoUrl: data.videoUrl ?? '',
+          githubUrl: data.githubUrl ?? '',
           notes: data.notes ?? '',
           createdAt: formatTimestamp(data.createdAt),
           updatedAt: formatTimestamp(data.updatedAt),
@@ -136,6 +137,7 @@ export const createApp = async (formData: AppFormData): Promise<string> => {
       playStoreUrl: formData.playStoreUrl.trim(),
       landingPageUrl: (formData.landingPageUrl || '').trim(),
       videoUrl: (formData.videoUrl || '').trim(),
+      githubUrl: (formData.githubUrl || '').trim(),
       notes: formData.notes.trim(),
       createdAt: now,
       updatedAt: now,
@@ -152,6 +154,7 @@ export const createApp = async (formData: AppFormData): Promise<string> => {
     playStoreUrl: formData.playStoreUrl.trim(),
     landingPageUrl: (formData.landingPageUrl || '').trim(),
     videoUrl: (formData.videoUrl || '').trim(),
+    githubUrl: (formData.githubUrl || '').trim(),
     notes: formData.notes.trim(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -175,6 +178,7 @@ export const updateApp = async (id: string, formData: Partial<AppFormData>): Pro
       playStoreUrl: formData.playStoreUrl !== undefined ? formData.playStoreUrl.trim() : mockApps[idx].playStoreUrl,
       landingPageUrl: formData.landingPageUrl !== undefined ? formData.landingPageUrl.trim() : mockApps[idx].landingPageUrl,
       videoUrl: formData.videoUrl !== undefined ? formData.videoUrl.trim() : mockApps[idx].videoUrl,
+      githubUrl: formData.githubUrl !== undefined ? formData.githubUrl.trim() : mockApps[idx].githubUrl,
       notes: formData.notes !== undefined ? formData.notes.trim() : mockApps[idx].notes,
       updatedAt: new Date().toISOString(),
     };
@@ -190,6 +194,7 @@ export const updateApp = async (id: string, formData: Partial<AppFormData>): Pro
   if (formData.playStoreUrl !== undefined) updates.playStoreUrl = formData.playStoreUrl.trim();
   if (formData.landingPageUrl !== undefined) updates.landingPageUrl = formData.landingPageUrl.trim();
   if (formData.videoUrl !== undefined) updates.videoUrl = formData.videoUrl.trim();
+  if (formData.githubUrl !== undefined) updates.githubUrl = formData.githubUrl.trim();
   if (formData.notes !== undefined) updates.notes = formData.notes.trim();
 
   await updateDoc(doc(db, 'androidApps', id), updates);

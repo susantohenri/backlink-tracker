@@ -97,7 +97,7 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
   const appOptions: SearchableSelectOption[] = apps.map((a) => ({
     value: a.id,
     label: a.name,
-    subLabel: a.playStoreUrl || a.landingPageUrl,
+    subLabel: a.playStoreUrl || a.landingPageUrl || a.githubUrl,
     description: a.notes,
   }));
 
@@ -476,6 +476,46 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                           </button>
                         )}
                       </div>
+
+                      {/* GitHub URL row */}
+                      <div className="flex items-center justify-between gap-2 border-t border-slate-200/60 dark:border-slate-700/60 pt-1.5">
+                        <div className="flex items-center gap-1.5 overflow-hidden min-w-0 flex-1">
+                          <span className="text-slate-500 dark:text-slate-400 font-medium shrink-0">GitHub URL:</span>
+                          {selectedApp.githubUrl ? (
+                            <a
+                              href={selectedApp.githubUrl.startsWith('http') ? selectedApp.githubUrl : `https://${selectedApp.githubUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              data-testid="selected-app-github-link"
+                              className="inline-flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium hover:underline truncate"
+                              title={selectedApp.githubUrl}
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 mr-1 shrink-0" />
+                              <span className="truncate">{selectedApp.githubUrl}</span>
+                            </a>
+                          ) : (
+                            <span className="text-slate-400 italic">No URL configured</span>
+                          )}
+                        </div>
+                        {selectedApp.githubUrl && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyUrl(selectedApp.githubUrl!, 'github')}
+                            data-testid="btn-copy-github-url"
+                            className="inline-flex items-center gap-1 p-1 px-1.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded cursor-pointer transition-colors shrink-0"
+                            title={copiedType === 'github' ? 'Copied!' : 'Copy GitHub URL'}
+                          >
+                            {copiedType === 'github' ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Copied</span>
+                              </>
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })()}
@@ -817,6 +857,17 @@ export const SubmissionsView: React.FC<SubmissionsViewProps> = ({
                             >
                               <ExternalLink className="w-2.5 h-2.5 mr-1" />
                               Video
+                            </a>
+                          )}
+                          {app?.githubUrl && (
+                            <a
+                              href={app.githubUrl.startsWith('http') ? app.githubUrl : `https://${app.githubUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 hover:underline"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5 mr-1" />
+                              GitHub
                             </a>
                           )}
                         </div>

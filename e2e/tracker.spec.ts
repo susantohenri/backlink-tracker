@@ -828,6 +828,50 @@ test.describe.serial('Backlink Tracker - Complete E2E Critical Flows', () => {
     await copyWebsiteBtn.click();
     await expect(copyWebsiteBtn).toContainText('Copied');
   });
+
+  test('23. Android App GitHub URL: creation, Apps table display, and copy button in submission form', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.goto('/');
+
+    // 1. Create an App with GitHub URL
+    await page.getByTestId('nav-apps').click();
+    await page.getByTestId('btn-add-app').click();
+    await page.getByTestId('input-app-name').fill('Open Source Project');
+    await page.getByTestId('input-app-url').fill('https://play.google.com/store/apps/details?id=com.opensource.app');
+    await page.getByTestId('input-app-github-url').fill('https://github.com/myorg/open-source-app');
+    await page.getByTestId('btn-submit-app').click();
+    await expect(page.getByTestId('app-success-alert')).toBeVisible();
+
+    // Verify GitHub link in Apps table
+    const appsTable = page.getByTestId('apps-table');
+    await expect(appsTable).toContainText('Open Source Project');
+    await expect(appsTable).toContainText('View on GitHub');
+
+    // 2. Create a target Website
+    await page.getByTestId('nav-websites').click();
+    await page.getByTestId('btn-add-website').click();
+    await page.getByTestId('input-website-name').fill('GitHub Friendly Directory');
+    await page.getByTestId('input-website-url').fill('https://ghdirectory.com');
+    await page.getByTestId('btn-submit-website').click();
+    await expect(page.getByTestId('website-success-alert')).toBeVisible();
+
+    // 3. Open Submission form
+    await page.getByTestId('nav-submissions').click();
+    await page.getByTestId('btn-add-submission').click();
+    await expect(page.getByTestId('submission-form-card')).toBeVisible();
+
+    // Verify GitHub URL link in selected-app-info
+    const githubLink = page.getByTestId('selected-app-github-link');
+    await expect(githubLink).toBeVisible();
+    await expect(githubLink).toHaveAttribute('target', '_blank');
+    await expect(githubLink).toContainText('https://github.com/myorg/open-source-app');
+
+    // Verify copy button for GitHub URL
+    const copyGithubBtn = page.getByTestId('btn-copy-github-url');
+    await expect(copyGithubBtn).toBeVisible();
+    await copyGithubBtn.click();
+    await expect(copyGithubBtn).toContainText('Copied');
+  });
 });
 
 

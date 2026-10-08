@@ -8,6 +8,7 @@ export interface AndroidApp {
   playStoreUrl: string;
   landingPageUrl?: string;
   videoUrl?: string;
+  githubUrl?: string;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +44,7 @@ export interface AppFormData {
   playStoreUrl: string;
   landingPageUrl?: string;
   videoUrl?: string;
+  githubUrl?: string;
   notes: string;
 }
 

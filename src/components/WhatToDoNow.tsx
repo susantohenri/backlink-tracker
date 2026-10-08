@@ -589,6 +589,16 @@ export const WhatToDoNow: React.FC<WhatToDoNowProps> = ({
                             Video URL
                           </a>
                         )}
+                        {app?.githubUrl && (
+                          <a
+                            href={app.githubUrl.startsWith('http') ? app.githubUrl : `https://${app.githubUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:underline"
+                          >
+                            GitHub URL
+                          </a>
+                        )}
                         {sub.postUrl && (
                           <a
                             href={sub.postUrl.startsWith('http') ? sub.postUrl : `https://${sub.postUrl}`}
